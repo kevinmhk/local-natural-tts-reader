@@ -558,7 +558,7 @@ for result in model.generate(
     text="Welcome to my completely local audiobook system.",
     voice="af_heart",
     speed=1.0,
-    lang_code="a"
+    lang_code="a",
 ):
     audio = result.audio
 ```

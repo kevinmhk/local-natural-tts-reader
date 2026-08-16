@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "local-natural-tts-reader"
+version = "0.1.0"
+description = "Private, offline-first document narration on Apple silicon."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Kevin" }]
+dependencies = [
+  "beautifulsoup4>=4.13,<5",
+  "charset-normalizer>=3.4,<4",
+  "huggingface-hub>=1.0,<2",
+  "markdown-it-py>=3.0,<5",
+  "numpy>=2.1,<3",
+  "platformdirs>=4.3,<5",
+  "pydantic>=2.10,<3",
+  "pypdf>=6.0,<7",
+  "soundfile>=0.13,<1",
+  "trafilatura>=2.0,<3",
+  "typer>=0.16,<1",
+]
+
+[project.optional-dependencies]
+mlx = ["mlx-audio>=0.4,<0.5"]
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.130,<7",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6.0,<7",
+  "reportlab>=4.3,<5",
+  "ruff>=0.12,<1",
+  "ty>=0.0.10,<1",
+]
+
+[project.scripts]
+reader = "local_tts_reader.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/local_tts_reader"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+markers = ["hardware: requires Apple silicon and locally installed Qwen3-TTS weights"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.coverage.run]
+branch = true
+source = ["local_tts_reader"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

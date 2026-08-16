@@ -26,6 +26,7 @@ web/dist/
 
 # Generated application data
 .cache/
+.local-data/
 logs/
 models/
 tmp/

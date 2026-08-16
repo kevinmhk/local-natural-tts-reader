@@ -19,13 +19,14 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - [x] (2026-08-16 04:19Z) Read the complete brainstorming document and establish the greenfield repository context.
 - [x] (2026-08-16 04:19Z) Verify the current Qwen3-TTS model modes, preset voices, and MLX-Audio adapter shape against primary documentation.
 - [x] (2026-08-16 04:19Z) Draft the system design and this self-contained implementation plan.
-- [ ] Complete Milestone 0: prove Qwen3-TTS generation and benchmark candidate model profiles on the target Mac.
-- [ ] Complete Milestone 1: scaffold the Python package, domain contracts, persistence, and fake-engine vertical slice with tests first.
-- [ ] Complete Milestone 2: implement and validate TXT, Markdown, HTML, and PDF extraction plus reviewable cleaning.
-- [ ] Complete Milestone 3: implement deterministic chunking, content-addressed caching, queue recovery, and CLI preview/status workflows.
-- [ ] Complete Milestone 4: integrate MLX-Audio Qwen3-TTS, generation-ahead, macOS playback, pause, and resume.
+- [x] (2026-08-16 05:17Z) Implement the CLI MVP defined by `docs/design-and-architecture.md`, including local extraction, deterministic chunking, MLX synthesis, caching, playback, recovery, diagnostics, tests, and offline verification.
+- [x] (2026-08-16 05:17Z) Complete Milestone 0's MVP feasibility acceptance: generate a valid Qwen3-TTS WAV on the target Mac and record the default 6-bit profile baseline.
+- [x] (2026-08-16 05:17Z) Complete Milestone 1: scaffold the Python package, domain contracts, persistence, and fake-engine vertical slice with tests first.
+- [x] (2026-08-16 05:17Z) Complete Milestone 2: implement and validate TXT, Markdown, HTML, and PDF extraction plus reviewable cleaning.
+- [x] (2026-08-16 05:17Z) Complete Milestone 3: implement deterministic chunking, content-addressed caching, recovery, and CLI preview/status workflows.
+- [x] (2026-08-16 05:17Z) Complete Milestone 4's MVP scope: integrate MLX-Audio Qwen3-TTS, one-chunk generation-ahead, macOS playback, pause, and resume.
 - [ ] Complete Milestone 5: add the loopback API and local drag-and-drop React interface.
-- [ ] Complete Milestone 6: harden offline operation, performance, failure recovery, documentation, and release acceptance.
+- [ ] Complete the post-MVP portions of Milestone 6: comparative model benchmarks and the API/frontend acceptance matrix. The CLI MVP hardening and offline checks are complete.
 - [ ] Evaluate stretch milestones only after the core acceptance scenario passes.
 
 ## Surprises & Discoveries
@@ -36,6 +37,12 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
   Evidence: The adapter documentation shows BF16 and 6-bit examples while the project-level quick start also uses a Base 8-bit model. Milestone 0 therefore pins a tested pair instead of assuming a model name.
 - Observation: PDF text extraction cannot reliably infer semantic structure or OCR image-only pages.
   Evidence: pypdf documents that PDF lacks a semantic layer and that it does not extract text from images. The design requires a preview and an explicit `needs_ocr` outcome.
+- Observation: MLX-Audio 0.4.x requires Hugging Face Hub 1.x, which is newer than the planning draft's initial dependency assumption.
+  Evidence: `uv sync --group dev` rejected `huggingface-hub<1` because MLX-Audio 0.4 depends on `huggingface-hub>=1.0`; the project bound is now `>=1.0,<2`.
+- Observation: MLX-Audio 0.4.8 exposes Qwen CustomVoice through `generate_custom_voice` and successfully loads the selected 6-bit conversion, while Transformers emits a non-fatal model-type compatibility warning during load.
+  Evidence: The hardware contract generated a valid WAV and passed; the same warning appeared during both successful real-model runs.
+- Observation: The default 6-bit profile stays ahead of real-time playback for the short target-Mac sample.
+  Evidence: 147 characters produced 9.23 seconds of audio in 4.14 seconds including process startup and model load, for a real-time factor of 0.45.
 
 ## Decision Log
 
@@ -60,14 +67,22 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - Decision: Make cleanup deterministic and forbid LLM rewriting in the verbatim pipeline.
   Rationale: Summarization or generative cleanup can silently alter a document. The spoken text must be previewable and reproducible.
   Date/Author: 2026-08-16 / Codex
+- Decision: Include the installed Hugging Face commit automatically in CLI synthesis profiles.
+  Rationale: A model repository ID alone is not an exact cache identity; revision-aware profiles prevent stale audio reuse after weights change.
+  Date/Author: 2026-08-16 / Codex
+- Decision: Treat the `Delivery boundaries` section of the architecture as the MVP boundary and leave the React/FastAPI interface for the explicitly named post-MVP milestone.
+  Rationale: The requested MVP is a complete usable local CLI reader; the architecture explicitly places the drag-and-drop web UI after it.
+  Date/Author: 2026-08-16 / Codex
 
 ## Outcomes & Retrospective
 
-No implementation milestones have been completed yet. The planning outcome is a bounded architecture that reaches a useful TXT-to-speech vertical slice early, expands extraction only through common contracts, and defers UI polish until the offline audio pipeline is measurable and resumable. Update this section after every milestone with observable behavior, remaining gaps, and any change to the expected user experience.
+The CLI MVP is operational on the target Apple-silicon Mac. It imports all four MVP formats, preserves inspectable source/extracted/cleaned/chunk artifacts, rejects unsafe PDF and file cases, generates and caches local Qwen3-TTS speech, plays through `afplay`, and resumes only from an unconfirmed chunk. A second real-model run was a cache hit with zero regeneration, and the network-disabled real verification passed.
+
+The remaining planned work is post-MVP: the loopback API and React interface, comparative BF16/alternative-quantization listening benchmarks, richer event/retry diagnostics, and stretch formats or export. Subjective narration quality still needs the user's listening assessment even though WAV validation and `afplay` completion are automated.
 
 ## Context and Orientation
 
-The repository currently contains only `docs/local-natural-TTS-reader-brainstorming.md`, `docs/design-and-architecture.md`, and this plan. There is no source package, dependency manifest, test suite, README, or Git repository yet. Do not assume commands or files beyond those named here exist until the relevant milestone creates them.
+The repository began with the three planning documents. MVP implementation now adds `pyproject.toml`, a Python 3.12 `.venv`, `src/local_tts_reader/`, `tests/`, scripts, fixtures, and user documentation milestone by milestone. Treat the checked-in working tree and the `Progress` section as authoritative about which paths exist.
 
 The target is a local document reader. An extractor converts one file format into a common structured document. A cleaner removes presentation noise without rewriting meaning. A chunker splits that document into model-sized, ordered passages. A text-to-speech (TTS) engine turns each passage into audio. A playback adapter plays the ordered audio. An artifact store keeps source, text, and audio files, while SQLite records their identities and states so work can resume.
 
@@ -292,6 +307,29 @@ Planning baseline captured on 2026-08-16:
       MLX-Audio             -> Apple-silicon model loading, generation, streaming, quantization
 
 Add concise milestone evidence below this line as work proceeds: chosen versions and model revisions, quality-gate transcripts, representative CLI output, benchmark summaries, offline verification output, and links to generated local artifacts where useful. Never paste private source text or large binary output into this plan.
+
+MVP evidence captured on 2026-08-16:
+
+    Runtime:
+      CPython 3.12.8, MLX-Audio 0.4.8, MLX 0.32.0
+      macOS 26.5.2 arm64, /usr/bin/afplay
+      mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit
+      revision 1c6c0ff58c43afa8df571facde2efa077efd85e2
+
+    Real synthesis:
+      147 input characters -> 9.23 s, mono 24 kHz WAV
+      4.14 s wall time including model load; real-time factor 0.45
+      repeat: cache_hit_count=1, generated_count=0, 0.51 s wall time
+      afplay: exit 0, played_count=1
+
+    Validation:
+      Ruff format and lint passed
+      ty check passed
+      Pytest: 25 passed, 1 hardware test skipped in the routine suite
+      Hardware Pytest: 1 passed with installed local weights
+      ShellCheck and shfmt passed
+      fake and real offline verification passed
+      PDF fixture was rendered and visually checked before extractor acceptance
 
 ## Interfaces and Dependencies
 
