@@ -1,0 +1,1682 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Installation, setup, configuration, and usage manual for Local Natural TTS Reader v0.1.">
+  <meta name="color-scheme" content="light dark">
+  <title>Local Natural TTS Reader - Operator Manual</title>
+  <style>
+    :root {
+      --paper: #f3efe4;
+      --paper-raised: #fbf8f0;
+      --ink: #171814;
+      --ink-soft: #55564e;
+      --rule: #c9c2b3;
+      --rule-strong: #918a7b;
+      --signal: #d84a1b;
+      --signal-dark: #a8320f;
+      --signal-wash: #f4d8ca;
+      --success: #2d6d4b;
+      --code-bg: #1d211e;
+      --code-ink: #f6f2e8;
+      --shadow: 0 18px 50px rgb(42 36 25 / 12%);
+      --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      --body: Avenir, "Avenir Next", Futura, "Trebuchet MS", sans-serif;
+      --mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+      --content: 76rem;
+    }
+
+    :root[data-theme="dark"] {
+      --paper: #171916;
+      --paper-raised: #20231f;
+      --ink: #f4efe4;
+      --ink-soft: #b8b7ad;
+      --rule: #464940;
+      --rule-strong: #6d7165;
+      --signal: #ff7042;
+      --signal-dark: #ff8a62;
+      --signal-wash: #4b2b20;
+      --success: #75c89c;
+      --code-bg: #0e100e;
+      --code-ink: #f8f4ea;
+      --shadow: 0 18px 50px rgb(0 0 0 / 30%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 2rem;
+    }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, transparent 0 2rem, rgb(216 74 27 / 8%) 2rem 2.08rem, transparent 2.08rem),
+        repeating-linear-gradient(0deg, transparent 0 31px, rgb(23 24 20 / 3%) 31px 32px),
+        var(--paper);
+      font-family: var(--body);
+      font-size: 1rem;
+      line-height: 1.7;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--signal-dark);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--signal);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    :focus-visible {
+      outline: 3px solid var(--signal);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 0.75rem;
+      left: 0.75rem;
+      padding: 0.65rem 1rem;
+      color: white;
+      background: var(--signal-dark);
+      transform: translateY(-180%);
+      transition: transform 160ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .masthead {
+      position: relative;
+      overflow: hidden;
+      min-height: 32rem;
+      border-bottom: 1px solid var(--rule-strong);
+      background:
+        radial-gradient(circle at 82% 10%, rgb(216 74 27 / 16%), transparent 28rem),
+        var(--paper-raised);
+    }
+
+    .masthead::after {
+      content: "LOCAL";
+      position: absolute;
+      right: -0.08em;
+      bottom: -0.22em;
+      color: transparent;
+      font-family: var(--display);
+      font-size: clamp(8rem, 22vw, 20rem);
+      font-weight: 700;
+      line-height: 1;
+      -webkit-text-stroke: 1px rgb(145 138 123 / 28%);
+      pointer-events: none;
+    }
+
+    .masthead-inner {
+      position: relative;
+      z-index: 1;
+      width: min(calc(100% - 2rem), var(--content));
+      margin: 0 auto;
+      padding: 2rem 0 4.5rem;
+    }
+
+    .utility-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .document-code,
+    .eyebrow,
+    .section-number,
+    .tag,
+    .toc-label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.75rem;
+      color: var(--ink);
+      border: 1px solid var(--rule-strong);
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--signal);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(17rem, 0.55fr);
+      gap: clamp(2rem, 7vw, 7rem);
+      align-items: end;
+      padding-top: clamp(3rem, 8vw, 7rem);
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--signal-dark);
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 2.6rem;
+      height: 0.18rem;
+      background: var(--signal);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: var(--display);
+      line-height: 1.08;
+      text-wrap: balance;
+    }
+
+    h1 {
+      max-width: 12ch;
+      margin: 1rem 0 1.25rem;
+      font-size: clamp(3.3rem, 8vw, 7.2rem);
+      font-weight: 600;
+      letter-spacing: -0.055em;
+    }
+
+    .lede {
+      max-width: 44rem;
+      margin: 0;
+      color: var(--ink-soft);
+      font-family: var(--display);
+      font-size: clamp(1.2rem, 2.1vw, 1.65rem);
+      line-height: 1.45;
+    }
+
+    .spec-card {
+      min-width: 0;
+      padding: 1.35rem;
+      border: 1px solid var(--rule-strong);
+      background: rgb(251 248 240 / 72%);
+      box-shadow: 0.45rem 0.45rem 0 var(--signal-wash);
+      backdrop-filter: blur(8px);
+    }
+
+    :root[data-theme="dark"] .spec-card {
+      background: rgb(32 35 31 / 78%);
+    }
+
+    .spec-card dl {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.55rem 1rem;
+      margin: 1rem 0 0;
+      font-size: 0.9rem;
+    }
+
+    .spec-card dt {
+      color: var(--ink-soft);
+    }
+
+    .spec-card dd {
+      min-width: 0;
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 1.6rem;
+    }
+
+    .tag {
+      padding: 0.35rem 0.6rem;
+      color: var(--success);
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 16rem minmax(0, 1fr);
+      gap: clamp(2rem, 5vw, 5.5rem);
+      width: min(calc(100% - 2rem), var(--content));
+      margin: 0 auto;
+      padding: 4rem 0 8rem;
+    }
+
+    .toc {
+      align-self: start;
+      position: sticky;
+      top: 1.5rem;
+      max-height: calc(100vh - 3rem);
+      overflow: auto;
+      padding: 1.2rem 0;
+      border-top: 3px solid var(--ink);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .toc ol {
+      display: grid;
+      gap: 0.15rem;
+      margin: 0.8rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc a {
+      display: grid;
+      grid-template-columns: 1.8rem 1fr;
+      gap: 0.4rem;
+      padding: 0.42rem 0.5rem;
+      color: var(--ink-soft);
+      border-left: 2px solid transparent;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      text-decoration: none;
+    }
+
+    .toc a::before {
+      content: attr(data-number);
+      color: var(--rule-strong);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+
+    .toc a:hover,
+    .toc a[aria-current="true"] {
+      color: var(--ink);
+      border-left-color: var(--signal);
+      background: var(--signal-wash);
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .quick-route {
+      margin-bottom: 5rem;
+      padding: clamp(1.4rem, 4vw, 2.5rem);
+      border: 1px solid var(--rule-strong);
+      background: var(--paper-raised);
+      box-shadow: var(--shadow);
+    }
+
+    .quick-route h2 {
+      margin: 0 0 1.5rem;
+      font-size: clamp(1.8rem, 4vw, 3rem);
+    }
+
+    .route-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 1px;
+      border: 1px solid var(--rule);
+      background: var(--rule);
+    }
+
+    .route-step {
+      position: relative;
+      min-height: 8.5rem;
+      padding: 1rem;
+      background: var(--paper-raised);
+    }
+
+    .route-step strong {
+      display: block;
+      margin: 1.7rem 0 0.25rem;
+      font-family: var(--display);
+      font-size: 1.1rem;
+    }
+
+    .route-step span {
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .route-step::before {
+      content: attr(data-step);
+      position: absolute;
+      top: 0.8rem;
+      right: 0.8rem;
+      color: var(--signal);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .manual-section {
+      position: relative;
+      margin-bottom: 6rem;
+      padding-top: 0.5rem;
+    }
+
+    .section-heading {
+      display: grid;
+      grid-template-columns: 4.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+      margin-bottom: 2rem;
+      padding-top: 1.2rem;
+      border-top: 3px solid var(--ink);
+    }
+
+    .section-number {
+      color: var(--signal);
+      font-size: 0.85rem;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 600;
+      letter-spacing: -0.035em;
+    }
+
+    .section-intro {
+      max-width: 48rem;
+      margin: -0.5rem 0 2rem 5.5rem;
+      color: var(--ink-soft);
+      font-family: var(--display);
+      font-size: 1.18rem;
+    }
+
+    h3 {
+      margin: 2.7rem 0 0.7rem;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+    }
+
+    h4 {
+      margin: 1.8rem 0 0.4rem;
+      font-size: 1.15rem;
+    }
+
+    p,
+    ul,
+    ol {
+      max-width: 52rem;
+    }
+
+    li + li {
+      margin-top: 0.35rem;
+    }
+
+    code {
+      padding: 0.08em 0.3em;
+      color: var(--ink);
+      border: 1px solid var(--rule);
+      border-radius: 0.2rem;
+      background: var(--paper-raised);
+      font-family: var(--mono);
+      font-size: 0.86em;
+      overflow-wrap: anywhere;
+    }
+
+    .command {
+      position: relative;
+      max-width: 56rem;
+      margin: 1rem 0 1.5rem;
+      border: 1px solid #313832;
+      border-radius: 0.25rem;
+      background: var(--code-bg);
+      box-shadow: 0.4rem 0.4rem 0 var(--signal-wash);
+      overflow: hidden;
+    }
+
+    .command-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 2.2rem;
+      padding: 0.35rem 0.45rem 0.35rem 0.85rem;
+      color: #bfc5bc;
+      border-bottom: 1px solid #363b36;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .copy-button {
+      padding: 0.28rem 0.6rem;
+      color: #f7f2e8;
+      border: 1px solid #596159;
+      border-radius: 0.2rem;
+      background: #2b302c;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      cursor: pointer;
+    }
+
+    .copy-button:hover {
+      color: white;
+      border-color: var(--signal);
+    }
+
+    pre {
+      margin: 0;
+      padding: 1.15rem;
+      color: var(--code-ink);
+      overflow: auto;
+      line-height: 1.55;
+      tab-size: 2;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      border: 0;
+      background: transparent;
+      font-size: 0.82rem;
+      overflow-wrap: normal;
+    }
+
+    .callout {
+      display: grid;
+      grid-template-columns: 2.7rem minmax(0, 1fr);
+      gap: 1rem;
+      max-width: 56rem;
+      margin: 1.5rem 0;
+      padding: 1.1rem 1.2rem;
+      border: 1px solid var(--rule-strong);
+      border-left: 0.35rem solid var(--signal);
+      background: var(--paper-raised);
+    }
+
+    .callout.safe {
+      border-left-color: var(--success);
+    }
+
+    .callout-mark {
+      display: grid;
+      width: 2.2rem;
+      height: 2.2rem;
+      place-items: center;
+      color: var(--paper-raised);
+      border-radius: 50%;
+      background: var(--signal);
+      font-family: var(--mono);
+      font-weight: 800;
+    }
+
+    .callout.safe .callout-mark {
+      background: var(--success);
+    }
+
+    .callout p {
+      margin: 0;
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 0.18rem;
+      font-family: var(--display);
+      font-size: 1.08rem;
+    }
+
+    .steps {
+      max-width: 56rem;
+      margin: 1.5rem 0;
+      padding: 0;
+      counter-reset: manual-step;
+      list-style: none;
+    }
+
+    .steps > li {
+      position: relative;
+      min-height: 5rem;
+      margin: 0;
+      padding: 0 0 2rem 4.4rem;
+      counter-increment: manual-step;
+    }
+
+    .steps > li::before {
+      content: counter(manual-step, decimal-leading-zero);
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: grid;
+      width: 2.9rem;
+      height: 2.9rem;
+      place-items: center;
+      color: var(--signal-dark);
+      border: 1px solid var(--signal);
+      border-radius: 50%;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .steps > li:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 3rem;
+      bottom: 0.1rem;
+      left: 1.42rem;
+      width: 1px;
+      background: var(--rule);
+    }
+
+    .steps h3,
+    .steps h4 {
+      margin-top: 0;
+    }
+
+    .table-wrap {
+      max-width: 60rem;
+      margin: 1.4rem 0 2rem;
+      border: 1px solid var(--rule-strong);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--paper-raised);
+      font-size: 0.88rem;
+    }
+
+    th,
+    td {
+      padding: 0.8rem 0.9rem;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--ink-soft);
+      background: var(--signal-wash);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:first-child {
+      font-weight: 700;
+    }
+
+    .definition-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      max-width: 58rem;
+      margin: 1.5rem 0;
+    }
+
+    .definition-card {
+      padding: 1.1rem;
+      border-top: 3px solid var(--signal);
+      background: var(--paper-raised);
+    }
+
+    .definition-card h3 {
+      margin: 0 0 0.45rem;
+      font-size: 1.25rem;
+    }
+
+    .definition-card p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 0.87rem;
+    }
+
+    details {
+      max-width: 58rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    details:last-of-type {
+      border-bottom: 1px solid var(--rule);
+    }
+
+    summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: center;
+      padding: 1rem 0;
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    summary::after {
+      content: "+";
+      color: var(--signal);
+      font-family: var(--mono);
+      font-size: 1.4rem;
+    }
+
+    details[open] summary::after {
+      content: "-";
+    }
+
+    .details-body {
+      padding: 0 0 1.2rem;
+      color: var(--ink-soft);
+    }
+
+    .footer {
+      padding: 2.5rem 1rem;
+      color: #ece8dd;
+      background: #171a17;
+    }
+
+    .footer-inner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2rem;
+      width: min(100%, var(--content));
+      margin: 0 auto;
+    }
+
+    .footer p {
+      margin: 0;
+      color: #b8bcb3;
+      font-size: 0.82rem;
+    }
+
+    .footer strong {
+      display: block;
+      margin-bottom: 0.2rem;
+      color: white;
+      font-family: var(--display);
+      font-size: 1.15rem;
+    }
+
+    .back-to-top {
+      align-self: center;
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid,
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .masthead {
+        min-height: auto;
+      }
+
+      .spec-card {
+        max-width: 28rem;
+      }
+
+      .toc {
+        position: relative;
+        top: auto;
+        max-height: none;
+      }
+
+      .toc ol {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .route-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .route-step:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        background: var(--paper);
+      }
+
+      .masthead-inner,
+      .shell {
+        width: min(calc(100% - 1.2rem), var(--content));
+      }
+
+      .utility-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .document-code {
+        max-width: 14rem;
+      }
+
+      .spec-card {
+        width: 100%;
+      }
+
+      .spec-card dl {
+        grid-template-columns: minmax(6.5rem, 0.8fr) minmax(0, 1.2fr);
+      }
+
+      .spec-card dd {
+        font-size: 0.7rem;
+      }
+
+      .toc ol,
+      .route-grid,
+      .definition-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .route-step:last-child {
+        grid-column: auto;
+      }
+
+      .section-heading {
+        grid-template-columns: 2.8rem minmax(0, 1fr);
+      }
+
+      .section-intro {
+        margin-left: 0;
+      }
+
+      .callout {
+        grid-template-columns: 1fr;
+      }
+
+      .steps > li {
+        padding-left: 3.8rem;
+      }
+
+      .footer-inner {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media print {
+      :root {
+        --paper: #fff;
+        --paper-raised: #fff;
+        --ink: #000;
+        --ink-soft: #333;
+        --rule: #aaa;
+        --rule-strong: #555;
+        --signal: #000;
+        --signal-dark: #000;
+        --signal-wash: #eee;
+      }
+
+      body {
+        background: #fff;
+        font-size: 10pt;
+      }
+
+      .masthead {
+        min-height: auto;
+      }
+
+      .masthead-inner {
+        padding-bottom: 2rem;
+      }
+
+      .theme-toggle,
+      .copy-button,
+      .toc,
+      .back-to-top {
+        display: none !important;
+      }
+
+      .shell {
+        display: block;
+        width: 100%;
+        padding: 2rem 0;
+      }
+
+      .manual-section {
+        break-before: page;
+      }
+
+      .quick-route,
+      .command,
+      .callout,
+      .table-wrap {
+        break-inside: avoid;
+        box-shadow: none;
+      }
+
+      a {
+        color: #000;
+      }
+    }
+  </style>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main-content">Skip to manual</a>
+
+  <header class="masthead" aria-labelledby="manual-title">
+    <div class="masthead-inner">
+      <div class="utility-row">
+        <div class="document-code">Operator document / LNTTSR-MAN-001 / v0.1</div>
+        <button class="theme-toggle" type="button" id="theme-toggle" aria-pressed="false">
+          <span aria-hidden="true">&#9680;</span>
+          <span>Change contrast</span>
+        </button>
+      </div>
+
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Local audio workbench</div>
+          <h1 id="manual-title">Reader operator manual</h1>
+          <p class="lede">
+            Install it once. Download one voice model deliberately. Then turn local documents
+            into natural speech without sending the document anywhere.
+          </p>
+          <div class="tag-row" aria-label="Supported operating profile">
+            <span class="tag">Apple silicon</span>
+            <span class="tag">Python 3.12</span>
+            <span class="tag">Offline runtime</span>
+            <span class="tag">TXT / MD / HTML / PDF</span>
+          </div>
+        </div>
+
+        <aside class="spec-card" aria-label="Manual scope">
+          <div class="toc-label">Field specification</div>
+          <dl>
+            <dt>Application</dt><dd>0.1.0</dd>
+            <dt>Interface</dt><dd>Command line</dd>
+            <dt>TTS engine</dt><dd>MLX-Audio</dd>
+            <dt>Default model</dt><dd>Qwen3-TTS 1.7B 6-bit</dd>
+            <dt>Default voice</dt><dd>Aiden</dd>
+            <dt>Playback</dt><dd>macOS afplay</dd>
+            <dt>Manual updated</dt><dd>2026-08-16</dd>
+          </dl>
+        </aside>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="Manual contents">
+      <div class="toc-label">Contents</div>
+      <ol>
+        <li><a href="#before-you-begin" data-number="01">Before you begin</a></li>
+        <li><a href="#install" data-number="02">Install</a></li>
+        <li><a href="#model-setup" data-number="03">Model setup</a></li>
+        <li><a href="#configuration" data-number="04">Configuration</a></li>
+        <li><a href="#first-session" data-number="05">First listening session</a></li>
+        <li><a href="#daily-use" data-number="06">Daily use</a></li>
+        <li><a href="#command-reference" data-number="07">Command reference</a></li>
+        <li><a href="#documents" data-number="08">Document handling</a></li>
+        <li><a href="#offline-privacy" data-number="09">Offline and privacy</a></li>
+        <li><a href="#maintenance" data-number="10">Maintenance</a></li>
+        <li><a href="#troubleshooting" data-number="11">Troubleshooting</a></li>
+        <li><a href="#quick-reference" data-number="12">Quick reference</a></li>
+      </ol>
+    </nav>
+
+    <main id="main-content">
+      <section class="quick-route" aria-labelledby="quick-route-title">
+        <div class="eyebrow">The shortest route</div>
+        <h2 id="quick-route-title">From source code to spoken document</h2>
+        <div class="route-grid">
+          <div class="route-step" data-step="01"><strong>Install</strong><span>Sync Python and MLX dependencies.</span></div>
+          <div class="route-step" data-step="02"><strong>Inspect</strong><span>Run doctor before downloading weights.</span></div>
+          <div class="route-step" data-step="03"><strong>Equip</strong><span>Download the Qwen voice model once.</span></div>
+          <div class="route-step" data-step="04"><strong>Import</strong><span>Extract, clean, and preview a document.</span></div>
+          <div class="route-step" data-step="05"><strong>Listen</strong><span>Speak, pause, resume, and reuse cache.</span></div>
+        </div>
+      </section>
+
+      <section class="manual-section" id="before-you-begin" aria-labelledby="before-title">
+        <div class="section-heading">
+          <div class="section-number">01</div>
+          <h2 id="before-title">Before you begin</h2>
+        </div>
+        <p class="section-intro">
+          Confirm the machine and understand when the reader uses the network. The supported
+          v0.1 runtime is deliberately narrow.
+        </p>
+
+        <h3>Hardware and software requirements</h3>
+        <ul>
+          <li>An Apple-silicon Mac. In Terminal, <code>uname -m</code> should print <code>arm64</code>.</li>
+          <li>macOS with the built-in <code>/usr/bin/afplay</code> utility.</li>
+          <li><code>git</code> to obtain or update the source checkout.</li>
+          <li><code>uv</code> to install Python 3.12 and the project environment.</li>
+          <li>At least 3 GB free for the default model, plus room for generated WAV files.</li>
+        </ul>
+
+        <div class="callout">
+          <div class="callout-mark" aria-hidden="true">!</div>
+          <p><strong>Two network phases only</strong>Cloning the repository, installing dependencies,
+            and running <code>reader models setup</code> need internet access. Importing, previewing,
+            synthesizing, caching, and playback are local after setup.</p>
+        </div>
+
+        <h3>Supported documents</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Format</th><th>Extensions</th><th>What is read</th><th>Main limitation</th></tr></thead>
+            <tbody>
+              <tr><td>Plain text</td><td><code>.txt</code></td><td>Blank-line paragraphs with encoding detection</td><td>Presentation structure is limited</td></tr>
+              <tr><td>Markdown</td><td><code>.md</code>, <code>.markdown</code></td><td>Headings, prose, list text, labels, inline code</td><td>Code blocks and raw HTML are omitted</td></tr>
+              <tr><td>Local HTML</td><td><code>.html</code>, <code>.htm</code></td><td>Main article prose without remote fetching</td><td>Tables, navigation, scripts, and images are omitted</td></tr>
+              <tr><td>Born-digital PDF</td><td><code>.pdf</code></td><td>Page text with conservative header and page-number cleanup</td><td>Scans need OCR; complex reading order must be previewed</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>EPUB, DOCX, image OCR, remote URLs, voice cloning, and voice design are not part of v0.1.</p>
+      </section>
+
+      <section class="manual-section" id="install" aria-labelledby="install-title">
+        <div class="section-heading">
+          <div class="section-number">02</div>
+          <h2 id="install-title">Install</h2>
+        </div>
+        <p class="section-intro">
+          Keep everything project-local. The commands below create a locked Python 3.12
+          environment inside the repository and install the MLX-Audio option.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <h3>Install uv if needed</h3>
+            <p>With Homebrew:</p>
+            <div class="command">
+              <div class="command-bar"><span>Terminal</span><button class="copy-button" type="button" data-copy-target="cmd-brew-uv">Copy</button></div>
+              <pre><code id="cmd-brew-uv">brew install uv</code></pre>
+            </div>
+            <p>Or use Astral's standalone installer:</p>
+            <div class="command">
+              <div class="command-bar"><span>Terminal</span><button class="copy-button" type="button" data-copy-target="cmd-install-uv">Copy</button></div>
+              <pre><code id="cmd-install-uv">curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+            </div>
+            <p>See the <a href="https://docs.astral.sh/uv/getting-started/installation/">official uv installation guide</a> before running a downloaded installer if you want to inspect it or choose another method.</p>
+          </li>
+
+          <li>
+            <h3>Obtain the project</h3>
+            <div class="command">
+              <div class="command-bar"><span>Terminal</span><button class="copy-button" type="button" data-copy-target="cmd-clone">Copy</button></div>
+              <pre><code id="cmd-clone">git clone https://github.com/kevinmhk/local-natural-tts-reader.git
+cd local-natural-tts-reader</code></pre>
+            </div>
+            <p>If you already have the checkout, open Terminal in its root directory instead.</p>
+          </li>
+
+          <li>
+            <h3>Create the environment and install dependencies</h3>
+            <div class="command">
+              <div class="command-bar"><span>Terminal</span><button class="copy-button" type="button" data-copy-target="cmd-sync">Copy</button></div>
+              <pre><code id="cmd-sync">uv python install 3.12
+UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
+            </div>
+            <p>The first line is safe to repeat; <code>uv</code> also installs a missing compatible Python automatically. The sync command creates <code>.venv</code>, installs the locked dependencies from <code>uv.lock</code>, and registers the <code>reader</code> command in that environment.</p>
+          </li>
+
+          <li>
+            <h3>Run the platform inspection</h3>
+            <div class="command">
+              <div class="command-bar"><span>Terminal</span><button class="copy-button" type="button" data-copy-target="cmd-doctor">Copy</button></div>
+              <pre><code id="cmd-doctor">UV_CACHE_DIR=.cache/uv uv run --extra mlx reader doctor</code></pre>
+            </div>
+            <p>Look for <code>python_312: true</code>, <code>apple_silicon: true</code>, <code>macos: true</code>, an <code>afplay</code> path, and sufficient disk space. <code>model_available</code> is expected to be false before the next section.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="manual-section" id="model-setup" aria-labelledby="model-title">
+        <div class="section-heading">
+          <div class="section-number">03</div>
+          <h2 id="model-title">Model setup</h2>
+        </div>
+        <p class="section-intro">
+          Model acquisition is explicit. Normal reading never downloads a missing model in
+          the background.
+        </p>
+
+        <div class="callout">
+          <div class="callout-mark" aria-hidden="true">!</div>
+          <p><strong>Choose the data directory first</strong>If you want a custom location,
+            export <code>LOCAL_TTS_READER_DATA_DIR</code> before running model setup and use the
+            same value for every later command. See <a href="#configuration">Configuration</a>
+            for examples.</p>
+        </div>
+
+        <h3>Download the tested default model</h3>
+        <div class="command">
+          <div class="command-bar"><span>Network required / once</span><button class="copy-button" type="button" data-copy-target="cmd-model-setup">Copy</button></div>
+          <pre><code id="cmd-model-setup">UV_CACHE_DIR=.cache/uv uv run --extra mlx reader models setup</code></pre>
+        </div>
+        <p>This installs <code>mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit</code> in the reader's configured data directory. It is approximately 3 GB and can take several minutes.</p>
+
+        <h3>Verify it with network access disabled</h3>
+        <div class="command">
+          <div class="command-bar"><span>Offline verification</span><button class="copy-button" type="button" data-copy-target="cmd-model-verify">Copy</button></div>
+          <pre><code id="cmd-model-verify">HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  UV_CACHE_DIR=.cache/uv uv run --no-sync reader models verify</code></pre>
+        </div>
+        <p>A successful response contains <code>"available": true</code> and the resolved local path.</p>
+
+        <h3>Pin a particular upstream revision</h3>
+        <p>Advanced users can explicitly download a revision. The installed Hugging Face commit is automatically included in future cache identities.</p>
+        <div class="command">
+          <div class="command-bar"><span>Optional</span><button class="copy-button" type="button" data-copy-target="cmd-model-revision">Copy</button></div>
+          <pre><code id="cmd-model-revision">uv run --no-sync reader models setup \
+  --model mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit \
+  --revision REVISION</code></pre>
+        </div>
+
+        <div class="callout safe">
+          <div class="callout-mark" aria-hidden="true">OK</div>
+          <p><strong>What setup does not download</strong>Documents are not part of model setup. No source text is sent to Hugging Face or another service.</p>
+        </div>
+      </section>
+
+      <section class="manual-section" id="configuration" aria-labelledby="configuration-title">
+        <div class="section-heading">
+          <div class="section-number">04</div>
+          <h2 id="configuration-title">Configuration</h2>
+        </div>
+        <p class="section-intro">
+          v0.1 intentionally has no user configuration file. Choose the data location through
+          the environment and choose narration behavior through <code>reader speak</code> options.
+        </p>
+
+        <h3>Data directory</h3>
+        <p>The default macOS location is:</p>
+        <div class="command">
+          <div class="command-bar"><span>Default path</span><button class="copy-button" type="button" data-copy-target="cmd-default-data">Copy</button></div>
+          <pre><code id="cmd-default-data">~/Library/Application Support/LocalNaturalTTSReader/</code></pre>
+        </div>
+
+        <p>To keep all reader data under the project during evaluation, set the following in every terminal that runs <code>reader</code>:</p>
+        <div class="command">
+          <div class="command-bar"><span>Project-local profile</span><button class="copy-button" type="button" data-copy-target="cmd-data-local">Copy</button></div>
+          <pre><code id="cmd-data-local">export LOCAL_TTS_READER_DATA_DIR="$PWD/.local-data"</code></pre>
+        </div>
+
+        <div class="callout">
+          <div class="callout-mark" aria-hidden="true">!</div>
+          <p><strong>Use one data directory consistently</strong>Models, document IDs, cache records, and resume positions live together. If one terminal uses the default and another uses <code>.local-data</code>, they will appear to contain different libraries.</p>
+        </div>
+
+        <h3>Environment reference</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Purpose</th><th>Normal value</th></tr></thead>
+            <tbody>
+              <tr><td><code>LOCAL_TTS_READER_DATA_DIR</code></td><td>Overrides all application data, model, database, and audio paths</td><td>Unset, or an absolute/local path</td></tr>
+              <tr><td><code>UV_CACHE_DIR</code></td><td>Keeps uv's dependency cache under the checkout</td><td><code>.cache/uv</code></td></tr>
+              <tr><td><code>HF_HUB_OFFLINE</code></td><td>Forces Hugging Face libraries to use local data only</td><td><code>1</code> for explicit offline checks</td></tr>
+              <tr><td><code>TRANSFORMERS_OFFLINE</code></td><td>Forces Transformers to use local data only</td><td><code>1</code> for explicit offline checks</td></tr>
+              <tr><td><code>LOCAL_TTS_READER_MODEL_PATH</code></td><td>Selects a model for the verification script and hardware test</td><td>Absolute installed model path</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Narration profile</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th><code>reader speak</code> option</th><th>Default</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td><code>--engine</code></td><td><code>mlx-audio</code></td><td>Uses real Qwen speech. <code>fake</code> creates a diagnostic tone.</td></tr>
+              <tr><td><code>--model</code></td><td>Qwen3-TTS 1.7B CustomVoice 6-bit</td><td>Selects installed weights or a direct local model path.</td></tr>
+              <tr><td><code>--model-revision</code></td><td>Detected automatically</td><td>Overrides the revision included in cache identity.</td></tr>
+              <tr><td><code>--voice</code></td><td><code>Aiden</code></td><td>Selects a preset speaker supported by the CustomVoice model.</td></tr>
+              <tr><td><code>--language</code></td><td><code>English</code></td><td>Guides pronunciation and language handling.</td></tr>
+              <tr><td><code>--instruction</code></td><td>Calm long-form narration</td><td>Controls style, expression, and pacing in natural language.</td></tr>
+              <tr><td><code>--speed</code></td><td><code>1.0</code></td><td>Accepts greater than 0.5 through 2.0. Non-default values become a synthesis instruction.</td></tr>
+              <tr><td><code>--no-play</code></td><td>Off</td><td>Generates and validates audio without sending it to <code>afplay</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Changing the model, revision, voice, language, instruction, or speed creates a new audio cache identity. Pause and playback position do not invalidate audio.</p>
+
+        <h3>Built-in safety defaults</h3>
+        <div class="definition-grid">
+          <div class="definition-card"><h3>100 MB</h3><p>Maximum imported source size.</p></div>
+          <div class="definition-card"><h3>2,000 pages</h3><p>Maximum PDF page count.</p></div>
+          <div class="definition-card"><h3>1,200 / 1,800</h3><p>Target and hard-limit chunk characters.</p></div>
+          <div class="definition-card"><h3>256 MB</h3><p>Minimum free disk space before synthesis.</p></div>
+        </div>
+        <p>These advanced limits are code-level defaults in v0.1; they are not environment variables or CLI options.</p>
+      </section>
+
+      <section class="manual-section" id="first-session" aria-labelledby="first-session-title">
+        <div class="section-heading">
+          <div class="section-number">05</div>
+          <h2 id="first-session-title">First listening session</h2>
+        </div>
+        <p class="section-intro">
+          This is the recommended human workflow: import, read the preview, then synthesize.
+          Preview is not optional for layout-heavy PDFs.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <h3>Import a local document</h3>
+            <div class="command">
+              <div class="command-bar"><span>Use quotes for spaces</span><button class="copy-button" type="button" data-copy-target="cmd-ingest">Copy</button></div>
+              <pre><code id="cmd-ingest">uv run --no-sync reader ingest "/absolute/path/to/My Document.pdf"</code></pre>
+            </div>
+            <p>The command copies the source into immutable local storage, extracts text, cleans it, creates deterministic chunks, and prints JSON. Copy the value of <code>document_id</code>.</p>
+          </li>
+
+          <li>
+            <h3>Inspect exactly what will be spoken</h3>
+            <div class="command">
+              <div class="command-bar"><span>Replace the ID</span><button class="copy-button" type="button" data-copy-target="cmd-preview">Copy</button></div>
+              <pre><code id="cmd-preview">uv run --no-sync reader preview DOCUMENT_ID --stdout</code></pre>
+            </div>
+            <p>The metadata includes a <code>preview_path</code>. The text printed after it is the exact cleaned narration input. Check warning messages and reading order before continuing.</p>
+          </li>
+
+          <li>
+            <h3>Start narration</h3>
+            <div class="command">
+              <div class="command-bar"><span>Default Aiden profile</span><button class="copy-button" type="button" data-copy-target="cmd-speak">Copy</button></div>
+              <pre><code id="cmd-speak">uv run --no-sync reader speak DOCUMENT_ID</code></pre>
+            </div>
+            <p>The first chunk is synthesized, validated, and played through <code>afplay</code>. The next chunk generates in the background. Audio is cached as complete WAV files.</p>
+          </li>
+
+          <li>
+            <h3>Confirm completion</h3>
+            <div class="command">
+              <div class="command-bar"><span>Status</span><button class="copy-button" type="button" data-copy-target="cmd-status">Copy</button></div>
+              <pre><code id="cmd-status">uv run --no-sync reader status DOCUMENT_ID</code></pre>
+            </div>
+            <p>A finished session reports <code>"state": "complete"</code>. Running the same <code>speak</code> command again should report cache hits instead of regenerating matching audio.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="manual-section" id="daily-use" aria-labelledby="daily-title">
+        <div class="section-heading">
+          <div class="section-number">06</div>
+          <h2 id="daily-title">Daily use</h2>
+        </div>
+        <p class="section-intro">
+          The ordinary loop is small: reuse the same data directory, import a file, preview,
+          speak, and keep the document ID for later status or resume commands.
+        </p>
+
+        <h3>Choose a narration style</h3>
+        <div class="command">
+          <div class="command-bar"><span>Custom profile</span><button class="copy-button" type="button" data-copy-target="cmd-custom-speak">Copy</button></div>
+          <pre><code id="cmd-custom-speak">uv run --no-sync reader speak DOCUMENT_ID \
+  --voice Aiden \
+  --language English \
+  --instruction "Warm, measured audiobook narration with clear dialogue and restrained emotion." \
+  --speed 1.0</code></pre>
+        </div>
+        <p>Use only voices supported by the installed CustomVoice model. Aiden is the tested default. Style instructions should describe delivery, not ask the model to summarize or alter content.</p>
+
+        <h3>Pause from another Terminal window</h3>
+        <div class="command">
+          <div class="command-bar"><span>Cooperative pause</span><button class="copy-button" type="button" data-copy-target="cmd-pause">Copy</button></div>
+          <pre><code id="cmd-pause">uv run --no-sync reader pause DOCUMENT_ID</code></pre>
+        </div>
+        <p>The current chunk is stopped and remains unconfirmed, so resume may repeat that chunk but will not skip it.</p>
+
+        <h3>Resume later</h3>
+        <div class="command">
+          <div class="command-bar"><span>Saved profile and position</span><button class="copy-button" type="button" data-copy-target="cmd-resume">Copy</button></div>
+          <pre><code id="cmd-resume">uv run --no-sync reader resume DOCUMENT_ID</code></pre>
+        </div>
+        <p>Resume uses the latest saved narration profile and starts at the last unconfirmed chunk.</p>
+
+        <h3>Generate without audible playback</h3>
+        <div class="command">
+          <div class="command-bar"><span>Silent generation</span><button class="copy-button" type="button" data-copy-target="cmd-no-play">Copy</button></div>
+          <pre><code id="cmd-no-play">uv run --no-sync reader speak DOCUMENT_ID --no-play</code></pre>
+        </div>
+
+        <h3>Run a fast diagnostic without MLX</h3>
+        <div class="command">
+          <div class="command-bar"><span>Fake engine</span><button class="copy-button" type="button" data-copy-target="cmd-fake">Copy</button></div>
+          <pre><code id="cmd-fake">uv run --no-sync reader speak DOCUMENT_ID \
+  --engine fake --model fake-tone --no-play</code></pre>
+        </div>
+        <p>The fake engine creates a short deterministic tone. It tests ingestion, state, cache, and playback coordination without loading Qwen.</p>
+      </section>
+
+      <section class="manual-section" id="command-reference" aria-labelledby="commands-title">
+        <div class="section-heading">
+          <div class="section-number">07</div>
+          <h2 id="commands-title">Command reference</h2>
+        </div>
+        <p class="section-intro">
+          Every command returns human-readable JSON or an actionable error. Add
+          <code>--help</code> to the command or command group for the installed interface.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Command</th><th>Purpose</th><th>Network</th></tr></thead>
+            <tbody>
+              <tr><td><code>reader doctor</code></td><td>Checks Python, macOS, arm64, MLX, model presence, afplay, data path, and disk</td><td>No</td></tr>
+              <tr><td><code>reader models setup</code></td><td>Explicitly downloads and verifies a model snapshot</td><td>Yes</td></tr>
+              <tr><td><code>reader models verify</code></td><td>Checks for complete local weights without downloading</td><td>No</td></tr>
+              <tr><td><code>reader ingest PATH</code></td><td>Imports, extracts, cleans, chunks, and returns a document ID</td><td>No</td></tr>
+              <tr><td><code>reader preview ID [--stdout]</code></td><td>Shows metadata, warnings, preview path, and optional exact text</td><td>No</td></tr>
+              <tr><td><code>reader speak ID [OPTIONS]</code></td><td>Generates ahead, caches WAV files, and plays in order</td><td>No</td></tr>
+              <tr><td><code>reader pause ID</code></td><td>Requests a cooperative pause for saved sessions</td><td>No</td></tr>
+              <tr><td><code>reader resume ID [--no-play]</code></td><td>Resumes the latest profile at its last unconfirmed chunk</td><td>No</td></tr>
+              <tr><td><code>reader status ID</code></td><td>Shows document, chunk, cache-ready, and playback progress</td><td>No</td></tr>
+              <tr><td><code>reader cache inspect</code></td><td>Reports local WAV count and total bytes</td><td>No</td></tr>
+              <tr><td><code>reader cache prune --dry-run</code></td><td>Reports unreferenced WAV files without deleting them</td><td>No</td></tr>
+              <tr><td><code>reader cache prune --delete</code></td><td>Deletes only unreferenced WAV files</td><td>No</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="command">
+          <div class="command-bar"><span>Discover installed options</span><button class="copy-button" type="button" data-copy-target="cmd-help">Copy</button></div>
+          <pre><code id="cmd-help">uv run --no-sync reader --help
+uv run --no-sync reader speak --help
+uv run --no-sync reader models --help
+uv run --no-sync reader cache --help</code></pre>
+        </div>
+      </section>
+
+      <section class="manual-section" id="documents" aria-labelledby="documents-title">
+        <div class="section-heading">
+          <div class="section-number">08</div>
+          <h2 id="documents-title">Document handling</h2>
+        </div>
+        <p class="section-intro">
+          The reader keeps the original, the extracted structure, the cleaned preview, the
+          chunk manifest, and generated audio separate so every stage can be inspected.
+        </p>
+
+        <h3>What import changes</h3>
+        <ul>
+          <li>The original source is copied byte-for-byte into the application workspace.</li>
+          <li>A SHA-256 identity makes repeated import of unchanged content idempotent.</li>
+          <li>Extracted and cleaned JSON artifacts are written atomically.</li>
+          <li>The exact narration text is saved as <code>cleaned/preview.txt</code>.</li>
+          <li>Chunks preserve deterministic order and stable identities.</li>
+          <li>No audio is generated until <code>reader speak</code>.</li>
+        </ul>
+
+        <h3>PDF review rules</h3>
+        <div class="callout">
+          <div class="callout-mark" aria-hidden="true">PDF</div>
+          <p><strong>Always preview important PDFs</strong>PDF stores visual placement rather than dependable semantic structure. Multi-column pages, tables, equations, captions, and footnotes can appear in the wrong order even when text extraction succeeds.</p>
+        </div>
+        <p>Repeated page-edge lines and isolated page numbers are removed conservatively. An image-only or near-empty PDF exits with a <code>needs_ocr</code> error. Encrypted, malformed, oversized, excessive-page, and signature-conflicting inputs are rejected.</p>
+
+        <h3>Data layout</h3>
+        <div class="command">
+          <div class="command-bar"><span>Conceptual workspace</span></div>
+          <pre><code>LocalNaturalTTSReader/
+|-- reader.sqlite3
+|-- models/
+|-- documents/
+|   `-- DOCUMENT_ID/
+|       |-- source/
+|       |-- extracted/document.json
+|       |-- cleaned/document.json
+|       |-- cleaned/preview.txt
+|       `-- chunks/manifest.json
+|-- audio/
+|-- exports/
+`-- tmp/</code></pre>
+        </div>
+      </section>
+
+      <section class="manual-section" id="offline-privacy" aria-labelledby="privacy-title">
+        <div class="section-heading">
+          <div class="section-number">09</div>
+          <h2 id="privacy-title">Offline and privacy</h2>
+        </div>
+        <p class="section-intro">
+          The runtime boundary is the configured data directory. There are no accounts,
+          telemetry, analytics, cloud synchronization, or remote document URLs in v0.1.
+        </p>
+
+        <h3>Run the supplied offline verification</h3>
+        <div class="command">
+          <div class="command-bar"><span>Fake engine / no audible output</span><button class="copy-button" type="button" data-copy-target="cmd-offline-fake">Copy</button></div>
+          <pre><code id="cmd-offline-fake">scripts/verify_offline_runtime.sh</code></pre>
+        </div>
+
+        <p>To include real local Qwen synthesis, first obtain the exact model path from <code>reader models verify</code>, then run:</p>
+        <div class="command">
+          <div class="command-bar"><span>Real MLX offline verification</span><button class="copy-button" type="button" data-copy-target="cmd-offline-real">Copy</button></div>
+          <pre><code id="cmd-offline-real">LOCAL_TTS_READER_MODEL_PATH="/absolute/path/to/model" \
+  scripts/verify_offline_runtime.sh</code></pre>
+        </div>
+
+        <h3>Privacy behavior</h3>
+        <ul>
+          <li>Local HTML is parsed from bytes and does not fetch scripts, styles, images, frames, or links.</li>
+          <li>Full source text is shown only when you explicitly use <code>preview --stdout</code>.</li>
+          <li>The current application writes no persistent log by default.</li>
+          <li>Voice cloning and voice design are unavailable in the MVP.</li>
+          <li>Users remain responsible for rights in source documents, model weights, preset voices, and generated audio.</li>
+        </ul>
+      </section>
+
+      <section class="manual-section" id="maintenance" aria-labelledby="maintenance-title">
+        <div class="section-heading">
+          <div class="section-number">10</div>
+          <h2 id="maintenance-title">Maintenance</h2>
+        </div>
+        <p class="section-intro">
+          Cache management is explicit and dry-run-first. Updating the checkout does not
+          require deleting your local library or model.
+        </p>
+
+        <h3>Inspect and prune audio</h3>
+        <div class="command">
+          <div class="command-bar"><span>Safe inspection</span><button class="copy-button" type="button" data-copy-target="cmd-cache">Copy</button></div>
+          <pre><code id="cmd-cache">uv run --no-sync reader cache inspect
+uv run --no-sync reader cache prune --dry-run</code></pre>
+        </div>
+        <p>Only after reviewing the dry-run count and byte total, delete unreferenced WAV files with:</p>
+        <div class="command">
+          <div class="command-bar"><span>Destructive / unreferenced WAV only</span><button class="copy-button" type="button" data-copy-target="cmd-cache-delete">Copy</button></div>
+          <pre><code id="cmd-cache-delete">uv run --no-sync reader cache prune --delete</code></pre>
+        </div>
+
+        <h3>Update the source checkout</h3>
+        <div class="command">
+          <div class="command-bar"><span>Update and resync</span><button class="copy-button" type="button" data-copy-target="cmd-update">Copy</button></div>
+          <pre><code id="cmd-update">git pull --ff-only
+UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
+        </div>
+
+        <h3>Locate or remove local application data</h3>
+        <div class="command">
+          <div class="command-bar"><span>Open default data directory in Finder</span><button class="copy-button" type="button" data-copy-target="cmd-open-data">Copy</button></div>
+          <pre><code id="cmd-open-data">open "$HOME/Library/Application Support/LocalNaturalTTSReader"</code></pre>
+        </div>
+        <p>Deleting the configured data directory removes imported source copies, cleaned text, generated audio, installed reader-managed models, SQLite state, and resume positions. Back up original documents separately and inspect the exact directory before removing it.</p>
+      </section>
+
+      <section class="manual-section" id="troubleshooting" aria-labelledby="troubleshooting-title">
+        <div class="section-heading">
+          <div class="section-number">11</div>
+          <h2 id="troubleshooting-title">Troubleshooting</h2>
+        </div>
+        <p class="section-intro">
+          Start with <code>reader doctor</code>, preserve the exact error message, and verify
+          that every terminal uses the same data directory.
+        </p>
+
+        <details>
+          <summary>Model is not installed locally</summary>
+          <div class="details-body">
+            <p>Run <code>reader models setup</code> once with network access, using the same <code>LOCAL_TTS_READER_DATA_DIR</code> that you will use for reading. Then run <code>reader models verify</code>.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>MLX-Audio is not installed</summary>
+          <div class="details-body">
+            <p>From the repository root, rerun <code>UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code>. Normal commands should then use <code>uv run --no-sync</code>.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Doctor reports the wrong Python or architecture</summary>
+          <div class="details-body">
+            <p>The supported environment is Python 3.12 on macOS arm64. Run <code>uv python install 3.12</code> and resync. An Intel Mac or a translated x86 shell is outside the supported MVP profile.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>PDF has no useful text layer</summary>
+          <div class="details-body">
+            <p>The file is probably scanned or image-only. OCR is outside v0.1; use a trusted local OCR tool to create a searchable PDF or extract text first, then import the result.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>PDF text is in the wrong order</summary>
+          <div class="details-body">
+            <p>PDF extraction follows the text layer, not visual semantics. Inspect <code>preview --stdout</code>. For multi-column layouts, tables, equations, or complex footnotes, convert the document to clean text or Markdown before narration.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Playback is silent or fails</summary>
+          <div class="details-body">
+            <p>Confirm <code>reader doctor</code> shows <code>/usr/bin/afplay</code>, check the Mac output device and volume, and run the same command with <code>--no-play</code>. If silent generation succeeds, the model and cache are working and the issue is in audio playback.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Generation appears slow</summary>
+          <div class="details-body">
+            <p>The first chunk includes lazy model loading. Later matching runs use complete cached WAV files. Confirm Apple silicon, close memory-heavy applications, and avoid changing voice or instruction settings when you want cache reuse.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>A Transformers compatibility warning appears</summary>
+          <div class="details-body">
+            <p>MLX-Audio 0.4.8 can emit a non-fatal model-type warning while successfully loading this Qwen conversion. If synthesis produces a valid WAV and exits successfully, the warning alone is not a failure. Preserve it when reporting a real generation error.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Low disk space stops synthesis</summary>
+          <div class="details-body">
+            <p>The reader refuses to start another chunk below its free-space threshold. Run <code>reader cache inspect</code>, review <code>reader cache prune --dry-run</code>, and delete only after confirming the candidates.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>A document ID is unknown in another terminal</summary>
+          <div class="details-body">
+            <p>The terminals are probably using different values of <code>LOCAL_TTS_READER_DATA_DIR</code>. Print the variable in both terminals and run <code>reader doctor</code> to compare <code>data_dir</code>.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="manual-section" id="quick-reference" aria-labelledby="quick-reference-title">
+        <div class="section-heading">
+          <div class="section-number">12</div>
+          <h2 id="quick-reference-title">Quick reference</h2>
+        </div>
+        <p class="section-intro">
+          A compact operating sequence for a machine that has already completed dependency
+          and model setup.
+        </p>
+
+        <div class="command">
+          <div class="command-bar"><span>Complete daily workflow</span><button class="copy-button" type="button" data-copy-target="cmd-daily">Copy</button></div>
+          <pre><code id="cmd-daily"># Optional: use one project-local data workspace consistently.
+export LOCAL_TTS_READER_DATA_DIR="$PWD/.local-data"
+
+# Inspect the environment and local model.
+uv run --no-sync reader doctor
+uv run --no-sync reader models verify
+
+# Import and copy the returned document_id.
+uv run --no-sync reader ingest "/absolute/path/to/document.pdf"
+
+# Replace DOCUMENT_ID below.
+uv run --no-sync reader preview DOCUMENT_ID --stdout
+uv run --no-sync reader speak DOCUMENT_ID
+
+# From another terminal if needed.
+uv run --no-sync reader pause DOCUMENT_ID
+uv run --no-sync reader resume DOCUMENT_ID
+uv run --no-sync reader status DOCUMENT_ID</code></pre>
+        </div>
+
+        <div class="callout safe">
+          <div class="callout-mark" aria-hidden="true">&#10003;</div>
+          <p><strong>Definition of a healthy run</strong>The preview matches the intended reading order, <code>speak</code> reports <code>complete</code>, a repeated run reports cache hits, and all commands resolve the same data directory.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <p><strong>Local Natural TTS Reader</strong>Human operator manual for the v0.1 CLI MVP. This file contains all styles and scripts and does not load remote assets.</p>
+      <a class="back-to-top" href="#top">Back to top &uarr;</a>
+    </div>
+  </footer>
+
+  <div class="sr-only" id="copy-status" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var root = document.documentElement;
+      var themeToggle = document.getElementById("theme-toggle");
+      var copyStatus = document.getElementById("copy-status");
+      var savedTheme = null;
+
+      try {
+        savedTheme = window.localStorage.getItem("lnttsr-manual-theme");
+      } catch (error) {
+        savedTheme = null;
+      }
+
+      if (savedTheme === "dark") {
+        root.setAttribute("data-theme", "dark");
+        themeToggle.setAttribute("aria-pressed", "true");
+      }
+
+      themeToggle.addEventListener("click", function () {
+        var useDark = root.getAttribute("data-theme") !== "dark";
+        if (useDark) {
+          root.setAttribute("data-theme", "dark");
+        } else {
+          root.removeAttribute("data-theme");
+        }
+        themeToggle.setAttribute("aria-pressed", String(useDark));
+        try {
+          window.localStorage.setItem("lnttsr-manual-theme", useDark ? "dark" : "light");
+        } catch (error) {
+          // The manual remains functional when local storage is unavailable.
+        }
+      });
+
+      function fallbackCopy(text) {
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+
+      document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          var target = document.getElementById(button.getAttribute("data-copy-target"));
+          if (!target) return;
+          var text = target.textContent;
+          var operation = navigator.clipboard && window.isSecureContext
+            ? navigator.clipboard.writeText(text)
+            : Promise.resolve().then(function () { fallbackCopy(text); });
+
+          operation.then(function () {
+            var original = button.textContent;
+            button.textContent = "Copied";
+            copyStatus.textContent = "Command copied to clipboard.";
+            window.setTimeout(function () { button.textContent = original; }, 1400);
+          }).catch(function () {
+            copyStatus.textContent = "Copy failed. Select the command manually.";
+          });
+        });
+      });
+
+      var tocLinks = Array.from(document.querySelectorAll(".toc a"));
+      var sections = tocLinks
+        .map(function (link) { return document.querySelector(link.getAttribute("href")); })
+        .filter(Boolean);
+
+      if ("IntersectionObserver" in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            tocLinks.forEach(function (link) {
+              var active = link.getAttribute("href") === "#" + entry.target.id;
+              if (active) {
+                link.setAttribute("aria-current", "true");
+              } else {
+                link.removeAttribute("aria-current");
+              }
+            });
+          });
+        }, { rootMargin: "-15% 0px -70% 0px", threshold: 0 });
+
+        sections.forEach(function (section) { observer.observe(section); });
+      }
+    }());
+  </script>
+</body>
+</html>

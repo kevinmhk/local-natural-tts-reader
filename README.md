@@ -56,6 +56,11 @@ default is `~/Library/Application Support/LocalNaturalTTSReader/`.
 
 ## Usage
 
+For a complete human-oriented walkthrough of installation, model setup, configuration,
+commands, maintenance, and troubleshooting, open
+[`docs/manual.html`](docs/manual.html) in a browser. The manual is a standalone offline HTML
+file with no remote assets.
+
 Import a document and save the returned document ID:
 
 ```sh
