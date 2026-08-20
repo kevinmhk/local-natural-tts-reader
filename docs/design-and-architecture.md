@@ -1,7 +1,7 @@
 # Local Natural TTS Reader: Design and Architecture
 
 Status: Draft 0.1  
-Last updated: 2026-08-16  
+Last updated: 2026-08-20
 Target platform: Apple-silicon macOS, initially the owner's Mac Studio
 
 ## 1. Vision
@@ -358,10 +358,16 @@ Playback speed is a synthesis setting in the MVP because `afplay` is not used as
 
 ## 14. Persistence and artifact layout
 
-The application data directory is selected with `platformdirs` and can be overridden for development and tests. On macOS the production default is under `~/Library/Application Support/LocalNaturalTTSReader/`. The server never serves this directory as a static filesystem root.
+The application creates a human-editable TOML configuration file at
+`~/.local-natural-tts-reader/config.toml` on its first command. By default, the configuration and
+artifact workspace share `~/.local-natural-tts-reader/`. The file records the workspace path,
+default model and narration profile, and operational limits. Editing `data_dir` relocates the
+workspace; `reader --config /path/to/config.toml ...` selects an explicit alternate profile. The
+server never serves this directory as a static filesystem root.
 
 ```text
-LocalNaturalTTSReader/
+~/.local-natural-tts-reader/
+|-- config.toml
 |-- reader.sqlite3
 |-- documents/<document-id>/
 |   |-- source/<original-name>
@@ -515,6 +521,9 @@ The system never keeps every decoded waveform in memory. A completed chunk is pe
 6. **Deterministic cleanup, no LLM rewriting.** Verbatim listening requires fidelity and auditability.
 7. **Explicit scanned-PDF failure.** Silent partial extraction is more harmful than a clear `needs_ocr` result.
 8. **Single synthesis worker initially.** Reliability and bounded memory take priority over maximum export throughput.
+9. **TOML configuration in the local workspace.** A generated, human-editable
+   `~/.local-natural-tts-reader/config.toml` makes persistent settings discoverable without
+   requiring shell environment configuration.
 
 ## 23. Risks and mitigations
 

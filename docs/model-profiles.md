@@ -18,6 +18,9 @@ MLX-Audio 0.4.8 is the first tested runtime dependency. The model is an MLX-comm
 conversion and is downloaded only by `reader models setup`. Normal `speak`, `resume`, and
 `models verify` resolve existing local files with Hugging Face offline mode enabled.
 
+The default model and narrator values live in `~/.local-natural-tts-reader/config.toml` and can
+be changed there. `reader speak` options override those stored defaults for one invocation.
+
 ## Capability boundary
 
 CustomVoice supports preset speakers and optional style instructions. The MVP intentionally

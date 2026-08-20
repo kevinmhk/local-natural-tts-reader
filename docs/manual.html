@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Installation, setup, configuration, and usage manual for Local Natural TTS Reader v0.1.">
+  <meta name="description" content="Installation, setup, configuration, and usage manual for Local Natural TTS Reader v0.2.">
   <meta name="color-scheme" content="light dark">
   <title>Local Natural TTS Reader - Operator Manual</title>
   <style>
@@ -914,7 +914,7 @@
   <header class="masthead" aria-labelledby="manual-title">
     <div class="masthead-inner">
       <div class="utility-row">
-        <div class="document-code">Operator document / LNTTSR-MAN-001 / v0.1</div>
+        <div class="document-code">Operator document / LNTTSR-MAN-001 / v0.2</div>
         <button class="theme-toggle" type="button" id="theme-toggle" aria-pressed="false">
           <span aria-hidden="true">&#9680;</span>
           <span>Change contrast</span>
@@ -946,7 +946,7 @@
             <dt>Default model</dt><dd>Qwen3-TTS 1.7B 6-bit</dd>
             <dt>Default voice</dt><dd>Aiden</dd>
             <dt>Playback</dt><dd>macOS afplay</dd>
-            <dt>Manual updated</dt><dd>2026-08-16</dd>
+            <dt>Manual updated</dt><dd>2026-08-20</dd>
           </dl>
         </aside>
       </div>
@@ -992,7 +992,7 @@
         </div>
         <p class="section-intro">
           Confirm the machine and understand when the reader uses the network. The supported
-          v0.1 runtime is deliberately narrow.
+          current runtime is deliberately narrow.
         </p>
 
         <h3>Hardware and software requirements</h3>
@@ -1024,7 +1024,7 @@
           </table>
         </div>
 
-        <p>EPUB, DOCX, image OCR, remote URLs, voice cloning, and voice design are not part of v0.1.</p>
+        <p>EPUB, DOCX, image OCR, remote URLs, voice cloning, and voice design are not part of the MVP.</p>
       </section>
 
       <section class="manual-section" id="install" aria-labelledby="install-title">
@@ -1096,10 +1096,10 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
 
         <div class="callout">
           <div class="callout-mark" aria-hidden="true">!</div>
-          <p><strong>Choose the data directory first</strong>If you want a custom location,
-            export <code>LOCAL_TTS_READER_DATA_DIR</code> before running model setup and use the
-            same value for every later command. See <a href="#configuration">Configuration</a>
-            for examples.</p>
+          <p><strong>Review the configuration first</strong>The first reader command creates
+            <code>~/.local-natural-tts-reader/config.toml</code>. Edit its <code>data_dir</code>
+            before model setup if you want a different workspace. See
+            <a href="#configuration">Configuration</a> for the complete file.</p>
         </div>
 
         <h3>Download the tested default model</h3>
@@ -1138,34 +1138,66 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
           <h2 id="configuration-title">Configuration</h2>
         </div>
         <p class="section-intro">
-          v0.1 intentionally has no user configuration file. Choose the data location through
-          the environment and choose narration behavior through <code>reader speak</code> options.
+          The first <code>reader</code> command creates one human-editable TOML file. It stores
+          the workspace, narration defaults, and operational limits locally; no application
+          environment variable is needed.
         </p>
 
-        <h3>Data directory</h3>
-        <p>The default macOS location is:</p>
+        <h3>Default configuration and data directory</h3>
+        <p>The default configuration file and local workspace are:</p>
         <div class="command">
           <div class="command-bar"><span>Default path</span><button class="copy-button" type="button" data-copy-target="cmd-default-data">Copy</button></div>
-          <pre><code id="cmd-default-data">~/Library/Application Support/LocalNaturalTTSReader/</code></pre>
+          <pre><code id="cmd-default-data">~/.local-natural-tts-reader/config.toml
+~/.local-natural-tts-reader/</code></pre>
         </div>
 
-        <p>To keep all reader data under the project during evaluation, set the following in every terminal that runs <code>reader</code>:</p>
+        <p>Run <code>reader doctor</code> once to create the file, then edit it with your preferred
+          text editor. Its complete default content is:</p>
         <div class="command">
-          <div class="command-bar"><span>Project-local profile</span><button class="copy-button" type="button" data-copy-target="cmd-data-local">Copy</button></div>
-          <pre><code id="cmd-data-local">export LOCAL_TTS_READER_DATA_DIR="$PWD/.local-data"</code></pre>
+          <div class="command-bar"><span>TOML configuration</span><button class="copy-button" type="button" data-copy-target="cmd-default-config">Copy</button></div>
+          <pre><code id="cmd-default-config"># Local Natural TTS Reader configuration.
+# Edit this file, then run `reader doctor` to verify the result.
+
+# All sources, previews, SQLite state, generated WAVs, and reader-managed models.
+data_dir = "~/.local-natural-tts-reader"
+
+# Default Qwen3-TTS CustomVoice narration profile.
+default_model = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit"
+default_voice = "Aiden"
+default_language = "English"
+default_instruction = "Calm, clear long-form narration with restrained expression and natural pauses."
+default_speed = 1.0
+
+# Safety, chunking, and pacing limits.
+max_file_bytes = 104857600
+max_pdf_pages = 2000
+chunk_target_chars = 1200
+chunk_hard_limit_chars = 1800
+paragraph_pause_ms = 350
+section_pause_ms = 800
+min_free_bytes = 268435456</code></pre>
         </div>
 
         <div class="callout">
           <div class="callout-mark" aria-hidden="true">!</div>
-          <p><strong>Use one data directory consistently</strong>Models, document IDs, cache records, and resume positions live together. If one terminal uses the default and another uses <code>.local-data</code>, they will appear to contain different libraries.</p>
+          <p><strong>Use one configuration consistently</strong>Models, document IDs, cache records,
+            and resume positions live in its configured <code>data_dir</code>. Commands that use
+            a different configuration file appear to have a different library.</p>
         </div>
 
-        <h3>Environment reference</h3>
+        <h3>Alternate profiles and environment reference</h3>
+        <p>For a separate profile or an isolated test workspace, put <code>--config</code> before
+          the reader subcommand. A missing config is created and initially uses its parent directory
+          as the workspace:</p>
+        <div class="command">
+          <div class="command-bar"><span>Alternate profile</span><button class="copy-button" type="button" data-copy-target="cmd-alternate-config">Copy</button></div>
+          <pre><code id="cmd-alternate-config">uv run --no-sync reader --config "$PWD/reader.toml" doctor</code></pre>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Purpose</th><th>Normal value</th></tr></thead>
             <tbody>
-              <tr><td><code>LOCAL_TTS_READER_DATA_DIR</code></td><td>Overrides all application data, model, database, and audio paths</td><td>Unset, or an absolute/local path</td></tr>
+              <tr><td><code>--config PATH</code></td><td>Selects a TOML configuration and its data workspace</td><td>Omit for <code>~/.local-natural-tts-reader/config.toml</code></td></tr>
               <tr><td><code>UV_CACHE_DIR</code></td><td>Keeps uv's dependency cache under the checkout</td><td><code>.cache/uv</code></td></tr>
               <tr><td><code>HF_HUB_OFFLINE</code></td><td>Forces Hugging Face libraries to use local data only</td><td><code>1</code> for explicit offline checks</td></tr>
               <tr><td><code>TRANSFORMERS_OFFLINE</code></td><td>Forces Transformers to use local data only</td><td><code>1</code> for explicit offline checks</td></tr>
@@ -1200,7 +1232,8 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
           <div class="definition-card"><h3>1,200 / 1,800</h3><p>Target and hard-limit chunk characters.</p></div>
           <div class="definition-card"><h3>256 MB</h3><p>Minimum free disk space before synthesis.</p></div>
         </div>
-        <p>These advanced limits are code-level defaults in v0.1; they are not environment variables or CLI options.</p>
+        <p>These advanced limits are values in the TOML configuration. Edit them deliberately and
+          run <code>reader doctor</code> to validate the file before importing or synthesizing.</p>
       </section>
 
       <section class="manual-section" id="first-session" aria-labelledby="first-session-title">
@@ -1258,7 +1291,7 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
           <h2 id="daily-title">Daily use</h2>
         </div>
         <p class="section-intro">
-          The ordinary loop is small: reuse the same data directory, import a file, preview,
+          The ordinary loop is small: reuse the same configuration, import a file, preview,
           speak, and keep the document ID for later status or resume commands.
         </p>
 
@@ -1371,7 +1404,8 @@ uv run --no-sync reader cache --help</code></pre>
         <h3>Data layout</h3>
         <div class="command">
           <div class="command-bar"><span>Conceptual workspace</span></div>
-          <pre><code>LocalNaturalTTSReader/
+          <pre><code>~/.local-natural-tts-reader/
+|-- config.toml
 |-- reader.sqlite3
 |-- models/
 |-- documents/
@@ -1393,8 +1427,8 @@ uv run --no-sync reader cache --help</code></pre>
           <h2 id="privacy-title">Offline and privacy</h2>
         </div>
         <p class="section-intro">
-          The runtime boundary is the configured data directory. There are no accounts,
-          telemetry, analytics, cloud synchronization, or remote document URLs in v0.1.
+          The runtime boundary is the data directory named in the local TOML configuration.
+          There are no accounts, telemetry, analytics, cloud synchronization, or remote document URLs.
         </p>
 
         <h3>Run the supplied offline verification</h3>
@@ -1452,7 +1486,7 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <h3>Locate or remove local application data</h3>
         <div class="command">
           <div class="command-bar"><span>Open default data directory in Finder</span><button class="copy-button" type="button" data-copy-target="cmd-open-data">Copy</button></div>
-          <pre><code id="cmd-open-data">open "$HOME/Library/Application Support/LocalNaturalTTSReader"</code></pre>
+          <pre><code id="cmd-open-data">open "$HOME/.local-natural-tts-reader"</code></pre>
         </div>
         <p>Deleting the configured data directory removes imported source copies, cleaned text, generated audio, installed reader-managed models, SQLite state, and resume positions. Back up original documents separately and inspect the exact directory before removing it.</p>
       </section>
@@ -1464,13 +1498,15 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         </div>
         <p class="section-intro">
           Start with <code>reader doctor</code>, preserve the exact error message, and verify
-          that every terminal uses the same data directory.
+          that every terminal uses the same configuration file.
         </p>
 
         <details>
           <summary>Model is not installed locally</summary>
           <div class="details-body">
-            <p>Run <code>reader models setup</code> once with network access, using the same <code>LOCAL_TTS_READER_DATA_DIR</code> that you will use for reading. Then run <code>reader models verify</code>.</p>
+            <p>Run <code>reader models setup</code> once with network access, using the same
+              <code>config.toml</code> that you will use for reading. Then run
+              <code>reader models verify</code>.</p>
           </div>
         </details>
 
@@ -1533,7 +1569,9 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <details>
           <summary>A document ID is unknown in another terminal</summary>
           <div class="details-body">
-            <p>The terminals are probably using different values of <code>LOCAL_TTS_READER_DATA_DIR</code>. Print the variable in both terminals and run <code>reader doctor</code> to compare <code>data_dir</code>.</p>
+            <p>The terminals are probably using different configurations. Run
+              <code>reader doctor</code> in both terminals to compare <code>config_path</code>
+              and <code>data_dir</code>; use the same <code>--config PATH</code> when needed.</p>
           </div>
         </details>
       </section>
@@ -1550,10 +1588,10 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
 
         <div class="command">
           <div class="command-bar"><span>Complete daily workflow</span><button class="copy-button" type="button" data-copy-target="cmd-daily">Copy</button></div>
-          <pre><code id="cmd-daily"># Optional: use one project-local data workspace consistently.
-export LOCAL_TTS_READER_DATA_DIR="$PWD/.local-data"
+          <pre><code id="cmd-daily"># The first command creates ~/.local-natural-tts-reader/config.toml.
+# Edit data_dir there before model setup if you want another workspace.
 
-# Inspect the environment and local model.
+# Inspect the environment, configuration, and local model.
 uv run --no-sync reader doctor
 uv run --no-sync reader models verify
 
@@ -1580,7 +1618,7 @@ uv run --no-sync reader status DOCUMENT_ID</code></pre>
 
   <footer class="footer">
     <div class="footer-inner">
-      <p><strong>Local Natural TTS Reader</strong>Human operator manual for the v0.1 CLI MVP. This file contains all styles and scripts and does not load remote assets.</p>
+      <p><strong>Local Natural TTS Reader</strong>Human operator manual for the v0.2 CLI MVP. This file contains all styles and scripts and does not load remote assets.</p>
       <a class="back-to-top" href="#top">Back to top &uarr;</a>
     </div>
   </footer>

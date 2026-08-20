@@ -22,10 +22,14 @@ model weights to the local models directory. Model loading sets `HF_HUB_OFFLINE=
 
 ## Local data
 
-The default data directory is `~/Library/Application Support/LocalNaturalTTSReader/`. Set
-`LOCAL_TTS_READER_DATA_DIR` before invoking the CLI to use another location. Deleting that
-directory removes the local library, audio cache, models downloaded by the reader, and resume
-state. Back up documents separately before deletion.
+The default configuration and data directory is `~/.local-natural-tts-reader/`; its
+human-editable settings file is `~/.local-natural-tts-reader/config.toml`. Edit `data_dir` in
+that TOML file to relocate the library. Use `reader --config /path/to/config.toml ...` for an
+explicit alternate profile; the reader creates a missing config file and initially scopes its
+workspace to that file's parent directory. The reader does not use an application data-directory
+environment variable. Deleting the configured data directory removes the local library, audio
+cache, models downloaded by the reader, and resume state. Back up documents separately before
+deletion.
 
 Cache pruning is dry-run-first and deletes only unreferenced WAV artifacts when `--delete` is
 explicitly provided. It does not delete sources, models, or referenced audio.

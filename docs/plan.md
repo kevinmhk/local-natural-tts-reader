@@ -25,6 +25,7 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - [x] (2026-08-16 05:17Z) Complete Milestone 2: implement and validate TXT, Markdown, HTML, and PDF extraction plus reviewable cleaning.
 - [x] (2026-08-16 05:17Z) Complete Milestone 3: implement deterministic chunking, content-addressed caching, recovery, and CLI preview/status workflows.
 - [x] (2026-08-16 05:17Z) Complete Milestone 4's MVP scope: integrate MLX-Audio Qwen3-TTS, one-chunk generation-ahead, macOS playback, pause, and resume.
+- [x] (2026-08-20) Replace application environment-variable configuration with generated TOML configuration at `~/.local-natural-tts-reader/config.toml`, including an explicit `--config` profile override.
 - [ ] Complete Milestone 5: add the loopback API and local drag-and-drop React interface.
 - [ ] Complete the post-MVP portions of Milestone 6: comparative model benchmarks and the API/frontend acceptance matrix. The CLI MVP hardening and offline checks are complete.
 - [ ] Evaluate stretch milestones only after the core acceptance scenario passes.
@@ -73,6 +74,9 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - Decision: Treat the `Delivery boundaries` section of the architecture as the MVP boundary and leave the React/FastAPI interface for the explicitly named post-MVP milestone.
   Rationale: The requested MVP is a complete usable local CLI reader; the architecture explicitly places the drag-and-drop web UI after it.
   Date/Author: 2026-08-16 / Codex
+- Decision: Store user settings in a generated TOML file at `~/.local-natural-tts-reader/config.toml` rather than using an application environment variable.
+  Rationale: A persistent, inspectable configuration records the workspace, narration defaults, and limits in one discoverable place. `--config PATH` supports isolated profiles and tests without ambient shell state.
+  Date/Author: 2026-08-20 / Codex
 
 ## Outcomes & Retrospective
 
@@ -162,7 +166,7 @@ Acceptance is that starting one local command opens or announces a loopback URL,
 
 ### Milestone 6: Hardening, performance, documentation, and release acceptance
 
-Create `scripts/verify_offline_runtime.sh` to run a non-destructive offline verification with already installed model weights and a temporary application data directory. It must not alter shell configuration or install global packages. Add tests for HTML external-resource blocking, path traversal, symbolic-link handling, oversized uploads, PDF page and content limits, corrupt caches, full-disk simulation, concurrent command rejection, interrupt recovery, database migration replay, and log redaction.
+Create `scripts/verify_offline_runtime.sh` to run a non-destructive offline verification with already installed model weights and a temporary TOML configuration selected through `reader --config`. It must not alter shell configuration or install global packages. Add tests for HTML external-resource blocking, path traversal, symbolic-link handling, oversized uploads, PDF page and content limits, corrupt caches, full-disk simulation, concurrent command rejection, interrupt recovery, database migration replay, and log redaction.
 
 Run the fixed listening corpus through the selected default profile and at least one alternative quantization. Record time to first audio, real-time factor, peak memory where available, underruns, artifact size, omissions, repetitions, pronunciation problems, and boundary quality in `docs/benchmarks.md`. Tune chunk size, pause values, and generation lead only when evidence improves the target Mac experience. Preserve prior defaults in the Decision Log when changing them.
 
@@ -333,7 +337,7 @@ MVP evidence captured on 2026-08-16:
 
 ## Interfaces and Dependencies
 
-Use Python 3.12. Define dependencies in `pyproject.toml` with tested compatible bounds and retain the generated `uv.lock` as a project file. The expected core dependencies are MLX-Audio, Typer, Pydantic, platformdirs, charset-normalizer, markdown-it-py, Trafilatura, Beautiful Soup, pypdf, and soundfile. Use the Python standard library for SQLite, hashing, subprocesses, paths, queues, and logging where adequate. Development dependencies are Ruff, ty, Pytest, pytest-cov, and a property-test library if used. FastAPI and its server dependencies are added only in Milestone 5. Do not add an abstraction framework when a protocol and small adapter suffice.
+Use Python 3.12. Define dependencies in `pyproject.toml` with tested compatible bounds and retain the generated `uv.lock` as a project file. The expected core dependencies are MLX-Audio, Typer, Pydantic, charset-normalizer, markdown-it-py, Trafilatura, Beautiful Soup, pypdf, and soundfile. Use the Python standard library for SQLite, TOML parsing, hashing, subprocesses, paths, queues, and logging where adequate. Development dependencies are Ruff, ty, Pytest, pytest-cov, and a property-test library if used. FastAPI and its server dependencies are added only in Milestone 5. Do not add an abstraction framework when a protocol and small adapter suffice.
 
 In `src/local_tts_reader/ingestion/base.py`, define an extractor contract equivalent to:
 

@@ -51,8 +51,10 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   UV_CACHE_DIR=.cache/uv uv run --no-sync reader models verify
 ```
 
-Set `LOCAL_TTS_READER_DATA_DIR` to keep application data in a custom location. The macOS
-default is `~/Library/Application Support/LocalNaturalTTSReader/`.
+The first `reader` command creates `~/.local-natural-tts-reader/config.toml`. This TOML file
+controls the local workspace, model, narrator defaults, and safety limits. The default workspace
+is `~/.local-natural-tts-reader/`; edit `data_dir` in the config to relocate it. For an explicit
+alternate profile, pass `--config /path/to/config.toml` before the reader subcommand.
 
 ## Usage
 
@@ -98,6 +100,23 @@ uv run --no-sync reader cache prune --dry-run
 
 Changing voice, language, instruction, speed, model, or generation settings creates a new
 audio cache identity. Changing playback position does not invalidate audio.
+
+## Configuration
+
+Run `reader doctor` once to create the default configuration, then edit
+`~/.local-natural-tts-reader/config.toml`. It contains the workspace path, default Qwen model,
+voice, language, instruction, speed, source/PDF limits, chunk limits, pauses, and minimum free
+space. Command-specific narration options such as `reader speak --voice Ryan` override the
+stored default for that invocation.
+
+Use a separate config and workspace for a different profile or test run:
+
+```sh
+uv run --no-sync reader --config /path/to/reader.toml doctor
+```
+
+If it does not exist, the reader creates the file and uses its parent directory as that profile's
+initial workspace. No `LOCAL_TTS_READER_DATA_DIR` environment variable is read by the reader.
 
 ## Offline verification
 
