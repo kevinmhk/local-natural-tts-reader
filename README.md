@@ -45,8 +45,9 @@ This is the only reader command that downloads model weights:
 UV_CACHE_DIR=.cache/uv uv run --extra mlx reader models setup
 ```
 
-The default is `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit`. Verify that the model
-is present without network access:
+The default is `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit` on
+[Hugging Face](https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit).
+Verify that the model is present without network access:
 
 ```sh
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
