@@ -5,7 +5,9 @@
 Local Natural TTS Reader is a private, offline-first document narrator for Apple-silicon
 macOS. It imports local TXT, Markdown, HTML, and born-digital PDF files; extracts and
 conservatively cleans their readable prose; creates deterministic chunks; generates WAV
-audio with MLX-Audio and Qwen3-TTS; and plays the result with resumable, cache-aware progress.
+audio with [MLX-Audio](https://github.com/Blaizzy/mlx-audio) and
+[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS); and plays the result with resumable,
+cache-aware progress.
 
 The runtime does not summarize, rewrite, fetch remote URLs, or upload document text. Model
 and dependency acquisition require network access during explicit setup. Normal import,
