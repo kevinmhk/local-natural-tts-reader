@@ -70,6 +70,13 @@ uv run --no-sync reader ingest path/to/document.pdf
 uv run --no-sync reader preview DOCUMENT_ID --stdout
 ```
 
+Forgot an earlier ID? List the local library with source, import, playback, and cached-audio
+metadata:
+
+```sh
+uv run --no-sync reader documents list
+```
+
 Start local Qwen narration with the default Aiden voice:
 
 ```sh

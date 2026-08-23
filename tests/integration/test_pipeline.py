@@ -41,6 +41,40 @@ def test_pipeline_reimports_and_reuses_cached_audio(tmp_path: Path, fixture_root
     assert app.status(first_document.document_id).state == "complete"
 
 
+def test_documents_list_includes_import_and_audio_metadata(
+    tmp_path: Path, fixture_root: Path
+) -> None:
+    app = ReaderApplication(Settings(data_dir=tmp_path / "data"))
+    document = app.ingest(fixture_root / "text" / "two_paragraphs.txt")
+
+    before_speech = app.list_documents()
+
+    assert len(before_speech) == 1
+    assert before_speech[0].document_id == document.document_id
+    assert before_speech[0].source_name == "two_paragraphs.txt"
+    assert before_speech[0].media_type == "text/plain"
+    assert before_speech[0].imported_at
+    assert before_speech[0].state == "ready"
+    assert before_speech[0].chunk_count == len(app.get_chunks(document.document_id))
+    assert before_speech[0].ready_chunk_count == 0
+    assert before_speech[0].cached_audio_count == 0
+    assert before_speech[0].cached_audio_seconds == 0
+    assert before_speech[0].warning_count == 0
+
+    app.speak(
+        document.document_id,
+        SynthesisProfile(engine="fake", model="fake-tone"),
+        FakeTtsEngine(),
+        FakePlaybackBackend(),
+    )
+
+    after_speech = app.list_documents()[0]
+    assert after_speech.state == "complete"
+    assert after_speech.ready_chunk_count == after_speech.chunk_count
+    assert after_speech.cached_audio_count == after_speech.chunk_count
+    assert after_speech.cached_audio_seconds > 0
+
+
 def test_profile_change_invalidates_audio_only(tmp_path: Path, fixture_root: Path) -> None:
     app = ReaderApplication(Settings(data_dir=tmp_path / "data"))
     document = app.ingest(fixture_root / "text" / "two_paragraphs.txt")

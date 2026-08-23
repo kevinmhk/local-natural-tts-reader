@@ -26,6 +26,7 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - [x] (2026-08-16 05:17Z) Complete Milestone 3: implement deterministic chunking, content-addressed caching, recovery, and CLI preview/status workflows.
 - [x] (2026-08-16 05:17Z) Complete Milestone 4's MVP scope: integrate MLX-Audio Qwen3-TTS, one-chunk generation-ahead, macOS playback, pause, and resume.
 - [x] (2026-08-20) Replace application environment-variable configuration with generated TOML configuration at `~/.local-natural-tts-reader/config.toml`, including an explicit `--config` profile override.
+- [x] (2026-08-23) Add `reader documents list` to recover document IDs with import, playback, chunk, warning, and cached-audio metadata.
 - [ ] Complete Milestone 5: add the loopback API and local drag-and-drop React interface.
 - [ ] Complete the post-MVP portions of Milestone 6: comparative model benchmarks and the API/frontend acceptance matrix. The CLI MVP hardening and offline checks are complete.
 - [ ] Evaluate stretch milestones only after the core acceptance scenario passes.
@@ -138,7 +139,7 @@ Implement `chunking/sentences.py` and `chunking/chunker.py` with a small languag
 
 Expand the SQLite schema and repositories for pipeline runs, chunks, synthesis runs, audio artifacts, playback sessions, and structured local events. Implement the complete cache key. Reconcile interrupted states at startup: a valid final WAV can become ready; an absent or corrupt WAV returns to pending; a temporary file is never playable. Add low-disk checks, per-chunk bounded retry bookkeeping, and an explicit dry-run artifact pruner.
 
-Add `reader status`, `reader cache inspect`, and `reader cache prune --dry-run`. Update the fake-engine end-to-end test to terminate during a chosen chunk, restart services, resume only unfinished work, and prove prior audio remains a cache hit.
+Add `reader documents list`, `reader status`, `reader cache inspect`, and `reader cache prune --dry-run`. The document list must return the document ID, source name, title, media type, import date, current state, chunk progress, warning count, and aggregate cached-audio count and duration without exposing document text. Update the fake-engine end-to-end test to terminate during a chosen chunk, restart services, resume only unfinished work, and prove prior audio remains a cache hit.
 
 Acceptance is deterministic manifests across two clean runs, correct selective invalidation when voice versus cleaned text changes, and recovery from simulated process interruption without skipped or falsely completed chunks. Run all Python quality gates.
 

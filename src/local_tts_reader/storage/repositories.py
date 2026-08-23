@@ -8,6 +8,7 @@ from local_tts_reader.domain.models import (
     AudioArtifact,
     Chunk,
     Document,
+    DocumentListEntry,
     DocumentStatus,
     SynthesisProfile,
 )
@@ -284,6 +285,83 @@ class Repository:
             chunk_count=int(counts["total"] or 0),
             ready_count=int(counts["ready"] or 0),
             next_ordinal=int(session["next_ordinal"] if session else 0),
+        )
+
+    def list_documents(self) -> tuple[DocumentListEntry, ...]:
+        """Return imported-document metadata without loading source or preview text."""
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                """
+                WITH chunk_counts AS (
+                    SELECT document_id,
+                           COUNT(*) AS chunk_count,
+                           SUM(CASE WHEN state = 'ready' THEN 1 ELSE 0 END) AS ready_chunk_count
+                    FROM chunks
+                    GROUP BY document_id
+                ),
+                audio_counts AS (
+                    SELECT chunks.document_id,
+                           COUNT(audio_artifacts.cache_key) AS cached_audio_count,
+                           COALESCE(SUM(audio_artifacts.duration_seconds), 0)
+                               AS cached_audio_seconds
+                    FROM chunks
+                    JOIN audio_artifacts ON audio_artifacts.chunk_id = chunks.chunk_id
+                    GROUP BY chunks.document_id
+                )
+                SELECT documents.document_id,
+                       documents.source_name,
+                       documents.title,
+                       documents.media_type,
+                       documents.created_at,
+                       documents.warnings_json,
+                       COALESCE(
+                           (
+                               SELECT playback_sessions.state
+                               FROM playback_sessions
+                               WHERE playback_sessions.document_id = documents.document_id
+                               ORDER BY playback_sessions.updated_at DESC,
+                                        playback_sessions.rowid DESC
+                               LIMIT 1
+                           ),
+                           documents.state
+                       ) AS state,
+                       COALESCE(chunk_counts.chunk_count, 0) AS chunk_count,
+                       COALESCE(chunk_counts.ready_chunk_count, 0) AS ready_chunk_count,
+                       COALESCE(
+                           (
+                               SELECT playback_sessions.next_ordinal
+                               FROM playback_sessions
+                               WHERE playback_sessions.document_id = documents.document_id
+                               ORDER BY playback_sessions.updated_at DESC,
+                                        playback_sessions.rowid DESC
+                               LIMIT 1
+                           ),
+                           0
+                       ) AS next_ordinal,
+                       COALESCE(audio_counts.cached_audio_count, 0) AS cached_audio_count,
+                       COALESCE(audio_counts.cached_audio_seconds, 0) AS cached_audio_seconds
+                FROM documents
+                LEFT JOIN chunk_counts ON chunk_counts.document_id = documents.document_id
+                LEFT JOIN audio_counts ON audio_counts.document_id = documents.document_id
+                ORDER BY documents.created_at DESC, documents.document_id DESC
+                """
+            ).fetchall()
+        return tuple(
+            DocumentListEntry(
+                document_id=row["document_id"],
+                source_name=row["source_name"],
+                title=row["title"],
+                media_type=row["media_type"],
+                imported_at=row["created_at"],
+                state=row["state"],
+                chunk_count=int(row["chunk_count"]),
+                ready_chunk_count=int(row["ready_chunk_count"]),
+                next_ordinal=int(row["next_ordinal"]),
+                cached_audio_count=int(row["cached_audio_count"]),
+                cached_audio_seconds=float(row["cached_audio_seconds"]),
+                warning_count=len(json.loads(row["warnings_json"])),
+            )
+            for row in rows
         )
 
     def referenced_audio_paths(self) -> set[Path]:

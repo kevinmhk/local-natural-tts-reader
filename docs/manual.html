@@ -1253,7 +1253,7 @@ min_free_bytes = 268435456</code></pre>
               <div class="command-bar"><span>Use quotes for spaces</span><button class="copy-button" type="button" data-copy-target="cmd-ingest">Copy</button></div>
               <pre><code id="cmd-ingest">uv run --no-sync reader ingest "/absolute/path/to/My Document.pdf"</code></pre>
             </div>
-            <p>The command copies the source into immutable local storage, extracts text, cleans it, creates deterministic chunks, and prints JSON. Copy the value of <code>document_id</code>.</p>
+            <p>The command copies the source into immutable local storage, extracts text, cleans it, creates deterministic chunks, and prints JSON. Copy the value of <code>document_id</code>. If you forget it later, use <code>reader documents list</code>.</p>
           </li>
 
           <li>
@@ -1292,8 +1292,15 @@ min_free_bytes = 268435456</code></pre>
         </div>
         <p class="section-intro">
           The ordinary loop is small: reuse the same configuration, import a file, preview,
-          speak, and keep the document ID for later status or resume commands.
+          speak, and use the local document list whenever you need to recover an ID.
         </p>
+
+        <h3>Find an earlier document</h3>
+        <div class="command">
+          <div class="command-bar"><span>Local library</span><button class="copy-button" type="button" data-copy-target="cmd-documents-list">Copy</button></div>
+          <pre><code id="cmd-documents-list">uv run --no-sync reader documents list</code></pre>
+        </div>
+        <p>The JSON result lists each document ID with its source name, title, media type, import date, current playback state, chunk progress, warning count, and total cached-audio duration.</p>
 
         <h3>Choose a narration style</h3>
         <div class="command">
@@ -1352,6 +1359,7 @@ min_free_bytes = 268435456</code></pre>
               <tr><td><code>reader doctor</code></td><td>Checks Python, macOS, arm64, MLX, model presence, afplay, data path, and disk</td><td>No</td></tr>
               <tr><td><code>reader models setup</code></td><td>Explicitly downloads and verifies a model snapshot</td><td>Yes</td></tr>
               <tr><td><code>reader models verify</code></td><td>Checks for complete local weights without downloading</td><td>No</td></tr>
+              <tr><td><code>reader documents list</code></td><td>Lists document IDs with import, playback, warning, and cached-audio metadata</td><td>No</td></tr>
               <tr><td><code>reader ingest PATH</code></td><td>Imports, extracts, cleans, chunks, and returns a document ID</td><td>No</td></tr>
               <tr><td><code>reader preview ID [--stdout]</code></td><td>Shows metadata, warnings, preview path, and optional exact text</td><td>No</td></tr>
               <tr><td><code>reader speak ID [OPTIONS]</code></td><td>Generates ahead, caches WAV files, and plays in order</td><td>No</td></tr>
@@ -1569,7 +1577,8 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <details>
           <summary>A document ID is unknown in another terminal</summary>
           <div class="details-body">
-            <p>The terminals are probably using different configurations. Run
+            <p>First run <code>reader documents list</code> in the current terminal. If the ID is
+              still absent, the terminals are probably using different configurations. Run
               <code>reader doctor</code> in both terminals to compare <code>config_path</code>
               and <code>data_dir</code>; use the same <code>--config PATH</code> when needed.</p>
           </div>

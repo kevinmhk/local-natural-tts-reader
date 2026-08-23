@@ -394,6 +394,7 @@ The CLI is the first complete interface:
 ```text
 reader doctor
 reader models verify
+reader documents list
 reader ingest path/to/document.pdf
 reader preview <document-id>
 reader speak <document-id> --voice Aiden
@@ -404,7 +405,7 @@ reader cache inspect
 reader cache prune --dry-run
 ```
 
-`reader doctor` checks Apple silicon, Python and macOS versions, writable data paths, available disk space, `afplay`, MLX importability, configured model availability, and optional `ffmpeg`. It must distinguish a missing local model from a network failure and never download weights without an explicit setup command.
+`reader documents list` returns imported-document IDs with source name, title, media type, import date, current playback state, chunk progress, cached-audio count and duration, and warning count. It lets a user recover an ID without inspecting application files. `reader doctor` checks Apple silicon, Python and macOS versions, writable data paths, available disk space, `afplay`, MLX importability, configured model availability, and optional `ffmpeg`. It must distinguish a missing local model from a network failure and never download weights without an explicit setup command.
 
 After the CLI vertical slice passes, a React and TypeScript UI calls a FastAPI server bound to `127.0.0.1`. The API offers file import, preview, profile selection, job status, playback controls, and server-sent progress events. It accepts local uploads rather than arbitrary server paths by default. Cross-origin access is denied except for the configured development origin, and the production server does not bind to the LAN.
 

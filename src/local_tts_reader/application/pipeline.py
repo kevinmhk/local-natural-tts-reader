@@ -13,6 +13,7 @@ from local_tts_reader.domain.models import (
     AudioArtifact,
     Chunk,
     Document,
+    DocumentListEntry,
     DocumentStatus,
     SpeakResult,
     SynthesisProfile,
@@ -209,6 +210,10 @@ class ReaderApplication:
     def status(self, document_id: str) -> DocumentStatus:
         """Return a concise persistent status."""
         return self.repository.status(document_id)
+
+    def list_documents(self) -> tuple[DocumentListEntry, ...]:
+        """Return local-library metadata for selecting a document by ID."""
+        return self.repository.list_documents()
 
     def cache_inspect(self) -> dict[str, int]:
         """Return local audio cache usage."""

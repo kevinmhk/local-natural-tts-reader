@@ -126,6 +126,23 @@ class DocumentStatus(FrozenModel):
     next_ordinal: int
 
 
+class DocumentListEntry(FrozenModel):
+    """Metadata needed to find and choose one imported document."""
+
+    document_id: str
+    source_name: str
+    title: str | None
+    media_type: str
+    imported_at: str
+    state: str
+    chunk_count: int
+    ready_chunk_count: int
+    next_ordinal: int
+    cached_audio_count: int
+    cached_audio_seconds: float
+    warning_count: int
+
+
 class EngineCapabilities(FrozenModel):
     """Features exposed by a TTS engine."""
 
