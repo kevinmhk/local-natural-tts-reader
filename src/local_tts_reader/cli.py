@@ -263,6 +263,11 @@ def speak(
     instruction: str | None = typer.Option(None, "--instruction"),
     speed: float | None = typer.Option(None, "--speed", min=0.5, max=2.0),
     no_play: bool = typer.Option(False, "--no-play"),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Print safe MLX generation diagnostics to stderr without document text.",
+    ),
 ) -> None:
     """Generate ahead, play in order, and persist confirmed progress."""
     application = _application(ctx)
@@ -288,7 +293,11 @@ def speak(
         tts = (
             FakeTtsEngine()
             if engine == "fake"
-            else MlxQwenTtsEngine(application.settings.data_dir / "models")
+            else MlxQwenTtsEngine(
+                application.settings.data_dir / "models",
+                debug=debug,
+                error_log_path=application.settings.data_dir / "error.log",
+            )
         )
         playback = FakePlaybackBackend() if no_play else AfplayBackend()
         result = application.speak(document_id, profile, tts, playback)

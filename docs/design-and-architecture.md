@@ -1,7 +1,7 @@
 # Local Natural TTS Reader: Design and Architecture
 
 Status: Draft 0.1  
-Last updated: 2026-08-20
+Last updated: 2026-08-24
 Target platform: Apple-silicon macOS, initially the owner's Mac Studio
 
 ## 1. Vision
@@ -309,7 +309,7 @@ The chunker follows this priority order:
 
 There is no overlapping spoken text between chunks because overlap would repeat content. A heading may be its own chunk or may prefix the first paragraph, but it is spoken exactly once.
 
-The current defaults are a 280-character target, a 360-character hard limit, 350 milliseconds after a paragraph, and 800 milliseconds after a section. The former 1,200/1,800 default pair migrates once when the configuration is loaded. These values are tuned for reliable Qwen3-TTS completion; generation that reaches its token budget or ends with an implausibly long silent tail is rejected rather than cached.
+The current defaults are a 280-character target, a 360-character hard limit, 350 milliseconds after a paragraph, and 800 milliseconds after a section. The former 1,200/1,800 default pair migrates once when the configuration is loaded. These values are tuned for reliable Qwen3-TTS completion. If one request still reaches the model token budget, the Qwen adapter retries only that text as complete sentences or packed natural phrases and joins successful results with brief pauses. Sentence boundaries include closing quotation marks, and fallback never splits a word, acronym, or partially quoted token. A WAV with an implausibly long silent tail is rejected rather than cached.
 
 The chunker is deterministic. Re-running it with identical input and configuration produces identical chunk IDs and order.
 
@@ -341,7 +341,7 @@ Only `custom_voice` is enabled in the MVP. Capability validation prevents select
 
 Model loading is lazy and occurs once per synthesis worker. The worker writes each result to a temporary WAV, validates that it is non-empty and decodable, calls `fsync` where appropriate, and atomically renames it to its content-addressed destination. A cancellation finishes or discards the current temporary artifact but never exposes a partial file as playable.
 
-The default path renders one whole document chunk at a time. MLX-Audio's token-level streaming is valuable for latency but adds interruption, buffering, and partial-cache complexity. It is evaluated after the reliable chunk pipeline works. Chunk-level generation-ahead still lets playback start well before the whole document finishes.
+The default path renders one whole document chunk at a time. A request that reaches Qwen's output cap is a bounded exception: the adapter retries only that request as complete sentences or packed natural phrases, applies progressively lower temperature and stronger repetition penalty after an ordinary retry fails, writes no partial WAV, and concatenates successful segment audio with short pauses before the usual atomic validation and promotion. This keeps normal chunking and cache semantics unchanged while recovering from model-specific non-termination without asking Qwen to pronounce isolated letters or broken words. MLX-Audio's token-level streaming is valuable for latency but adds interruption, buffering, and partial-cache complexity. It is evaluated after the reliable chunk pipeline works. Chunk-level generation-ahead still lets playback start well before the whole document finishes.
 
 ## 13. Scheduling, playback, and resume
 
@@ -368,6 +368,7 @@ server never serves this directory as a static filesystem root.
 ```text
 ~/.local-natural-tts-reader/
 |-- config.toml
+|-- error.log                    # source-safe terminal synthesis diagnostics
 |-- reader.sqlite3
 |-- documents/<document-id>/
 |   |-- source/<original-name>
@@ -529,6 +530,9 @@ The system never keeps every decoded waveform in memory. A completed chunk is pe
 9. **TOML configuration in the local workspace.** A generated, human-editable
    `~/.local-natural-tts-reader/config.toml` makes persistent settings discoverable without
    requiring shell environment configuration.
+10. **Short chunks with adapter-level recovery.** Keep the 280/360-character import policy as the
+    normal completion safeguard; retry only a Qwen request that reaches its output cap as complete
+    sentences or packed natural phrases without splitting words and quoted tokens.
 
 ## 23. Risks and mitigations
 

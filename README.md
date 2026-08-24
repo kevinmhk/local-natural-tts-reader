@@ -132,6 +132,11 @@ uv run --no-sync reader cache prune --dry-run
 Changing voice, language, instruction, speed, model, or generation settings creates a new
 audio cache identity. Changing playback position does not invalidate audio.
 
+For Qwen generation-limit troubleshooting without exposing the document text, add `--debug` to
+`reader speak`. It writes structured attempt, token-cap, token-count, elapsed-time, and fragment
+size diagnostics to stderr and `~/.local-natural-tts-reader/error.log`. Token-limit and terminal
+synthesis failures are appended to that file even when `--debug` is omitted.
+
 ## Configuration
 
 Run `reader doctor` once to create the default configuration, then edit
@@ -141,9 +146,12 @@ space. Command-specific narration options such as `reader speak --voice Ryan` ov
 stored default for that invocation.
 
 The default chunk limits are deliberately short (`280` target characters and `360` hard-limit
-characters) for reliable Qwen3-TTS completion. Generated WAVs that hit Qwen's generation limit
-or end in more than three seconds of silence are rejected rather than cached. On the next reader
-command, the former default pair of `1200` and `1800` is migrated once to these safer values.
+characters) for reliable Qwen3-TTS completion. If an individual request still reaches Qwen's
+generation limit, the MLX adapter retries it as smaller complete sentences or packed natural
+phrases and joins valid results with brief pauses. It never splits a word, acronym, or partially
+quoted token for synthesis. WAVs that end in more than three seconds of silence are rejected rather
+than cached. On the next reader command, the former default pair of `1200` and `1800` is migrated
+once to these safer values.
 
 Use a separate config and workspace for a different profile or test run:
 

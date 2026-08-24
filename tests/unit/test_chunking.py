@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from local_tts_reader.chunking.chunker import ChunkingConfig, chunk_document
+from local_tts_reader.chunking.sentences import split_sentences
 from local_tts_reader.domain.models import Block, Document, Section, document_text
 
 
@@ -55,3 +56,12 @@ def test_oversized_sentence_uses_a_forced_unicode_safe_boundary() -> None:
     assert len(chunks) > 1
     assert all(len(chunk.text) <= 50 for chunk in chunks)
     assert any("forced_boundary" in chunk.warnings for chunk in chunks)
+
+
+def test_sentence_split_keeps_closing_quote_with_the_sentence() -> None:
+    text = "She said, “This works.” A second sentence follows."
+
+    assert split_sentences(text) == [
+        "She said, “This works.”",
+        "A second sentence follows.",
+    ]

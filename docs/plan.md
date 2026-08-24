@@ -28,6 +28,7 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - [x] (2026-08-20) Replace application environment-variable configuration with generated TOML configuration at `~/.local-natural-tts-reader/config.toml`, including an explicit `--config` profile override.
 - [x] (2026-08-23) Add `reader documents list` to recover document IDs with import, playback, chunk, warning, and cached-audio metadata.
 - [x] (2026-08-24) Add `reader export wav` to stream a complete cached narration profile into one atomic WAV file.
+- [x] (2026-08-24) Keep short 280/360-character chunks and add Qwen adapter fallback that retries token-limited passages as complete sentences or packed natural phrases.
 - [ ] Complete Milestone 5: add the loopback API and local drag-and-drop React interface.
 - [ ] Complete the post-MVP portions of Milestone 6: comparative model benchmarks and the API/frontend acceptance matrix. The CLI MVP hardening and offline checks are complete.
 - [ ] Evaluate stretch milestones only after the core acceptance scenario passes.
@@ -46,6 +47,8 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
   Evidence: The hardware contract generated a valid WAV and passed; the same warning appeared during both successful real-model runs.
 - Observation: The default 6-bit profile stays ahead of real-time playback for the short target-Mac sample.
   Evidence: 147 characters produced 9.23 seconds of audio in 4.14 seconds including process startup and model load, for a real-time factor of 0.45.
+- Observation: Short chunks can still trigger Qwen3-TTS's generation cap on unusual extracted passages.
+  Evidence: A 262-character PDF chunk reached the cap before emitting a valid completion.
 
 ## Decision Log
 
@@ -79,6 +82,9 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - Decision: Store user settings in a generated TOML file at `~/.local-natural-tts-reader/config.toml` rather than using an application environment variable.
   Rationale: A persistent, inspectable configuration records the workspace, narration defaults, and limits in one discoverable place. `--config PATH` supports isolated profiles and tests without ambient shell state.
   Date/Author: 2026-08-20 / Codex
+- Decision: Keep the 280/360-character import chunk policy and recover token-limited Qwen requests inside the MLX adapter.
+  Rationale: Smaller import chunks remain the normal guardrail. Adapter-level subdivision changes only the exceptional request, preserves a reviewable source chunk manifest, avoids reinflating the usual number of WAV artifacts, and preserves complete words and quoted tokens for intelligible narration.
+  Date/Author: 2026-08-24 / Codex
 
 ## Outcomes & Retrospective
 

@@ -8,7 +8,7 @@
 - MLX-Audio: 0.4.8
 - MLX: 0.32.0
 - Default model: `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit`
-- Chunk policy: 1,200 target characters, 1,800 hard-limit characters
+- Current chunk policy: 280 target characters, 360 hard-limit characters
 
 ## Automated baseline
 
@@ -40,6 +40,10 @@ The 4.14-second measurement includes process startup and lazy model loading, so 
 conservative first-chunk result rather than steady-state generation throughput. Peak memory
 was not captured. The playback command proved the audio-device path, but subjective listening
 notes for omissions, repetition, pronunciation, noise, and prosody remain a human review item.
+
+The original 1,200/1,800-character defaults are retained only as a historical baseline; existing
+configuration files migrate to the current 280/360 policy once. A token-limited request is now
+retried by the Qwen adapter as smaller sentence or clause segments before it is considered failed.
 
 Do not promote a different quantization or chunk policy without recording comparable evidence
 here and updating the Decision Log in `docs/plan.md`.

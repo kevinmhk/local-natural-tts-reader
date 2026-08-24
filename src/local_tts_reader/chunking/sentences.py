@@ -2,13 +2,23 @@ from __future__ import annotations
 
 import re
 
-_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?\u3002\uff01\uff1f])\s+")
+_SENTENCE_END = re.compile(r"[.!?\u3002\uff01\uff1f]+[\"'\u201d\u2019\u00bb)\]]*(?=\s+|$)")
 _CLAUSE = re.compile(r".+?(?:[;:,\uff1b\uff0c]\s*|$)", re.DOTALL)
 
 
 def split_sentences(text: str) -> list[str]:
-    """Split prose at common Western and CJK sentence endings."""
-    return [part.strip() for part in _SENTENCE_BOUNDARY.split(text) if part.strip()]
+    """Split prose after sentence punctuation and any closing quote or bracket."""
+    parts: list[str] = []
+    start = 0
+    for match in _SENTENCE_END.finditer(text):
+        part = text[start : match.end()].strip()
+        if part:
+            parts.append(part)
+        start = match.end()
+    remainder = text[start:].strip()
+    if remainder:
+        parts.append(remainder)
+    return parts
 
 
 def split_clauses(text: str) -> list[str]:

@@ -1190,6 +1190,13 @@ min_free_bytes = 268435456</code></pre>
           configuration. This changes only future imports; existing documents retain their saved
           chunk manifests until explicitly rebuilt.</p>
 
+        <p>These short import chunks are the primary completion safeguard. If an individual Qwen
+          request nevertheless reaches its output limit, the reader automatically retries only that
+          passage as complete sentences or packed natural phrases, joining successful results with
+          brief pauses. Later retries lower sampling temperature and strengthen repetition control.
+          Sentence endings retain closing quotation marks, and the fallback never asks Qwen to
+          pronounce an isolated letter or broken word.</p>
+
         <h3>Alternate profiles and environment reference</h3>
         <p>For a separate profile or an isolated test workspace, put <code>--config</code> before
           the reader subcommand. A missing config is created and initially uses its parent directory
@@ -1224,6 +1231,7 @@ min_free_bytes = 268435456</code></pre>
               <tr><td><code>--instruction</code></td><td>Calm long-form narration</td><td>Controls style, expression, and pacing in natural language.</td></tr>
               <tr><td><code>--speed</code></td><td><code>1.0</code></td><td>Accepts greater than 0.5 through 2.0. Non-default values become a synthesis instruction.</td></tr>
               <tr><td><code>--no-play</code></td><td>Off</td><td>Generates and validates audio without sending it to <code>afplay</code>.</td></tr>
+              <tr><td><code>--debug</code></td><td>Off</td><td>Prints safe MLX attempt, token-cap, token-count, timing, and fragment-size diagnostics to stderr and <code>error.log</code>; it never prints document text.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1440,6 +1448,7 @@ uv run --no-sync reader cache --help</code></pre>
           <div class="command-bar"><span>Conceptual workspace</span></div>
           <pre><code>~/.local-natural-tts-reader/
 |-- config.toml
+|-- error.log
 |-- reader.sqlite3
 |-- models/
 |-- documents/
@@ -1576,7 +1585,7 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <details>
           <summary>Playback is silent or fails</summary>
           <div class="details-body">
-            <p>Confirm <code>reader doctor</code> shows <code>/usr/bin/afplay</code>, check the Mac output device and volume, and run the same command with <code>--no-play</code>. The reader rejects newly generated WAVs that reach Qwen's generation limit or end with more than three seconds of silence; if that error appears, reduce the configured chunk limits and import a new document after correcting the configuration.</p>
+            <p>Confirm <code>reader doctor</code> shows <code>/usr/bin/afplay</code>, check the Mac output device and volume, and run the same command with <code>--no-play</code>. When Qwen reaches its generation limit, the reader automatically retries that passage as complete sentences or packed natural phrases. If the fallback also reaches its limit, rerun with <code>--debug</code> and preserve <code>~/.local-natural-tts-reader/error.log</code>; it contains attempt, token-cap, token-count, timing, and fragment-size metadata but no document text. Token-limit and terminal failures are recorded there even without <code>--debug</code>. Newly generated WAVs that end with more than three seconds of silence are rejected rather than cached.</p>
           </div>
         </details>
 

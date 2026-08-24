@@ -3,8 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
+import time
+import unicodedata
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
@@ -13,6 +17,7 @@ import numpy as np
 import soundfile as sf
 from huggingface_hub import snapshot_download
 
+from local_tts_reader.chunking.sentences import split_clauses, split_sentences
 from local_tts_reader.domain.models import (
     AudioArtifact,
     Chunk,
@@ -32,10 +37,48 @@ class SynthesisLimitError(RuntimeError):
     """Raised when Qwen3-TTS does not terminate before its output limit."""
 
 
-def default_max_tokens(text: str) -> int:
+_FALLBACK_HARD_LIMIT_CHARS = 120
+_FALLBACK_MIN_PHRASE_CHARS = 32
+_FALLBACK_PAUSE_MS = 120
+_FALLBACK_GENERATION_ATTEMPTS = 3
+
+
+def default_max_tokens(text: str, *, minimum: int = 256) -> int:
     """Return a conservative Qwen3-TTS token budget for one short text chunk."""
     word_count = len(text.split())
-    return min(1_024, max(256, 64 + (word_count * 8)))
+    return min(1_024, max(minimum, 128 + (word_count * 12)))
+
+
+def _pack_clauses(parts: tuple[str, ...], source_length: int) -> tuple[str, ...]:
+    """Pack whole clauses into phrase-sized requests without arbitrary word cuts."""
+    limit = max(64, min(_FALLBACK_HARD_LIMIT_CHARS, (source_length + 1) // 2))
+    groups: list[list[str]] = []
+    current: list[str] = []
+    for part in parts:
+        candidate = " ".join((*current, part))
+        if current and len(candidate) > limit:
+            groups.append(current)
+            current = [part]
+        else:
+            current.append(part)
+    if current:
+        groups.append(current)
+    if len(groups) > 1 and len(" ".join(groups[-1])) < _FALLBACK_MIN_PHRASE_CHARS:
+        groups[-2].extend(groups.pop())
+    return tuple(" ".join(group) for group in groups)
+
+
+def fallback_segments(text: str) -> tuple[str, ...]:
+    """Return complete sentences or whole-clause groups for a bounded retry."""
+    sentences = tuple(split_sentences(text))
+    if len(sentences) > 1:
+        return sentences
+    clauses = tuple(split_clauses(text))
+    if len(clauses) > 1:
+        parts = _pack_clauses(clauses, len(text))
+        if len(parts) > 1:
+            return parts
+    return ()
 
 
 def model_directory(models_root: Path, model_id: str) -> Path:
@@ -118,9 +161,20 @@ def installed_model_revision(path: Path) -> str:
 class MlxQwenTtsEngine:
     """Offline-only MLX-Audio adapter for Qwen3-TTS CustomVoice."""
 
-    def __init__(self, models_root: Path | None = None, model_loader: Any | None = None) -> None:
+    def __init__(
+        self,
+        models_root: Path | None = None,
+        model_loader: Any | None = None,
+        *,
+        debug: bool = False,
+        error_log_path: Path | None = None,
+    ) -> None:
         self.models_root = models_root
         self._model_loader = model_loader
+        self._debug_enabled = debug
+        self._error_log_path = error_log_path
+        self._debug_chunk: dict[str, object] = {}
+        self._generation_attempt = 0
         self._model: Any | None = None
         self._loaded_reference: Path | None = None
 
@@ -167,38 +221,24 @@ class MlxQwenTtsEngine:
     ) -> AudioArtifact:
         self.load(profile)
         assert self._model is not None
+        self._debug_chunk = {
+            "chunk_id": chunk.chunk_id,
+            "chunk_ordinal": chunk.ordinal,
+        }
         instruction = profile.instruction
         if profile.speed != 1.0:
             instruction = f"{instruction} Speak at approximately {profile.speed:.2f}x normal pace."
-        generation = dict(profile.generation)
-        max_tokens = generation.setdefault("max_tokens", default_max_tokens(chunk.text))
-        if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0:
-            raise ValueError("generation.max_tokens must be a positive integer")
-        generator = self._model.generate_custom_voice(
-            text=chunk.text,
-            speaker=profile.speaker,
-            language=profile.language,
-            instruct=instruction,
-            **generation,
-        )
-        results = list(generator)
-        if not results:
-            raise RuntimeError("MLX-Audio returned no audio")
-        if any(
-            isinstance(getattr(result, "token_count", None), int)
-            and result.token_count >= max_tokens
-            for result in results
-        ):
-            raise SynthesisLimitError(
-                "Qwen3-TTS reached its generation limit before completing the passage; "
-                "use shorter chunks and retry"
-            )
-        arrays = [np.asarray(result.audio, dtype=np.float32).reshape(-1) for result in results]
-        sample_rate = int(
-            getattr(results[0], "sample_rate", 0)
-            or getattr(self._model, "sample_rate", 0)
-            or 24_000
-        )
+        try:
+            arrays, sample_rate = self._synthesize_text(chunk.text, profile, instruction)
+        except SynthesisLimitError:
+            if fallback_segments(chunk.text):
+                arrays, sample_rate = self._synthesize_with_fallback(
+                    chunk.text, profile, instruction
+                )
+            else:
+                arrays, sample_rate = self._synthesize_fallback_part(
+                    chunk.text, profile, instruction
+                )
         pause = np.zeros(int(chunk.pause_after_ms * sample_rate / 1000), dtype=np.float32)
         audio = np.concatenate((*arrays, pause))
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -218,6 +258,212 @@ class MlxQwenTtsEngine:
             duration_seconds=info.duration_seconds,
             sample_rate=info.sample_rate,
         )
+
+    def _synthesize_text(
+        self,
+        text: str,
+        profile: SynthesisProfile,
+        instruction: str,
+        *,
+        max_tokens: int | None = None,
+        request_kind: str = "primary",
+        generation_overrides: dict[str, object] | None = None,
+    ) -> tuple[tuple[np.ndarray, ...], int]:
+        """Generate one request and reject output that reaches its token limit."""
+        assert self._model is not None
+        generation = dict(profile.generation)
+        if generation_overrides:
+            generation.update(generation_overrides)
+        if max_tokens is None:
+            max_tokens = self._max_tokens(text, generation.get("max_tokens"))
+        generation["max_tokens"] = max_tokens
+        self._generation_attempt += 1
+        attempt = self._generation_attempt
+        started_at = time.perf_counter()
+        self._diagnostic(
+            "generation_start",
+            attempt=attempt,
+            characters=len(text),
+            words=len(text.split()),
+            max_tokens=max_tokens,
+            request_kind=request_kind,
+            repetition_penalty=generation.get("repetition_penalty", 1.05),
+            temperature=generation.get("temperature", 0.9),
+        )
+        generator = self._model.generate_custom_voice(
+            text=text,
+            speaker=profile.speaker,
+            language=profile.language,
+            instruct=instruction,
+            **generation,
+        )
+        results = list(generator)
+        if not results:
+            self._diagnostic(
+                "generation_empty",
+                persist=True,
+                attempt=attempt,
+                elapsed_seconds=round(time.perf_counter() - started_at, 3),
+                request_kind=request_kind,
+            )
+            raise RuntimeError("MLX-Audio returned no audio")
+        token_counts = [getattr(result, "token_count", None) for result in results]
+        if any(isinstance(count, int) and count >= max_tokens for count in token_counts):
+            self._diagnostic(
+                "generation_limit",
+                persist=True,
+                attempt=attempt,
+                elapsed_seconds=round(time.perf_counter() - started_at, 3),
+                max_tokens=max_tokens,
+                request_kind=request_kind,
+                token_counts=token_counts,
+            )
+            raise SynthesisLimitError(
+                "Qwen3-TTS reached its generation limit before completing the passage"
+            )
+        arrays = tuple(np.asarray(result.audio, dtype=np.float32).reshape(-1) for result in results)
+        sample_rate = int(
+            getattr(results[0], "sample_rate", 0)
+            or getattr(self._model, "sample_rate", 0)
+            or 24_000
+        )
+        self._diagnostic(
+            "generation_complete",
+            attempt=attempt,
+            audio_samples=sum(array.size for array in arrays),
+            elapsed_seconds=round(time.perf_counter() - started_at, 3),
+            request_kind=request_kind,
+            sample_rate=sample_rate,
+            token_counts=token_counts,
+        )
+        return arrays, sample_rate
+
+    def _synthesize_with_fallback(
+        self,
+        text: str,
+        profile: SynthesisProfile,
+        instruction: str,
+        max_tokens: int | None = None,
+    ) -> tuple[tuple[np.ndarray, ...], int]:
+        """Recursively subdivide only a request that reached Qwen's token limit."""
+        retry_max_tokens = max_tokens or self._max_tokens(
+            text, profile.generation.get("max_tokens")
+        )
+        parts = fallback_segments(text)
+        if not parts:
+            self._diagnostic(
+                "generation_terminal_limit",
+                persist=True,
+                characters=len(text),
+                max_tokens=retry_max_tokens,
+                text_hash=sha256_text(text),
+                unicode_categories=sorted({unicodedata.category(character) for character in text}),
+                words=len(text.split()),
+            )
+            raise SynthesisLimitError(
+                "Qwen3-TTS reached its generation limit for a natural fallback passage; "
+                "inspect the extracted text and retry with a different model profile"
+            )
+        arrays: list[np.ndarray] = []
+        sample_rate: int | None = None
+        for index, part in enumerate(parts):
+            part_arrays, part_sample_rate = self._synthesize_fallback_part(
+                part, profile, instruction, retry_max_tokens
+            )
+            if sample_rate is None:
+                sample_rate = part_sample_rate
+            elif part_sample_rate != sample_rate:
+                raise RuntimeError("Qwen3-TTS fallback segments returned inconsistent sample rates")
+            arrays.extend(part_arrays)
+            if index + 1 < len(parts):
+                arrays.append(
+                    np.zeros(int(_FALLBACK_PAUSE_MS * part_sample_rate / 1000), dtype=np.float32)
+                )
+        assert sample_rate is not None
+        return tuple(arrays), sample_rate
+
+    def _synthesize_fallback_part(
+        self,
+        text: str,
+        profile: SynthesisProfile,
+        instruction: str,
+        max_tokens: int | None = None,
+    ) -> tuple[tuple[np.ndarray, ...], int]:
+        """Retry a split passage before splitting it again or reporting a terminal failure."""
+        retry_max_tokens = max_tokens or self._max_tokens(
+            text, profile.generation.get("max_tokens")
+        )
+        for attempt_index in range(_FALLBACK_GENERATION_ATTEMPTS):
+            try:
+                return self._synthesize_text(
+                    text,
+                    profile,
+                    instruction,
+                    max_tokens=retry_max_tokens,
+                    request_kind="fallback",
+                    generation_overrides=self._fallback_generation_overrides(
+                        profile, attempt_index
+                    ),
+                )
+            except SynthesisLimitError:
+                continue
+        return self._synthesize_with_fallback(text, profile, instruction, retry_max_tokens)
+
+    @staticmethod
+    def _fallback_generation_overrides(
+        profile: SynthesisProfile, attempt_index: int
+    ) -> dict[str, object]:
+        """Increase anti-repetition pressure only after an ordinary fallback attempt fails."""
+        if attempt_index == 0:
+            return {}
+        configured_temperature = profile.generation.get("temperature", 0.9)
+        configured_penalty = profile.generation.get("repetition_penalty", 1.05)
+        if not isinstance(configured_temperature, int | float) or isinstance(
+            configured_temperature, bool
+        ):
+            configured_temperature = 0.9
+        if not isinstance(configured_penalty, int | float) or isinstance(configured_penalty, bool):
+            configured_penalty = 1.05
+        temperature_ceiling = 0.8 if attempt_index == 1 else 0.7
+        penalty_floor = 1.1 if attempt_index == 1 else 1.2
+        return {
+            "temperature": min(float(configured_temperature), temperature_ceiling),
+            "repetition_penalty": max(float(configured_penalty), penalty_floor),
+        }
+
+    @staticmethod
+    def _max_tokens(text: str, configured: object) -> int:
+        """Use an explicit cap or derive a conservative Qwen3-TTS token budget."""
+        if configured is not None and (
+            isinstance(configured, bool) or not isinstance(configured, int) or configured <= 0
+        ):
+            raise ValueError("generation.max_tokens must be a positive integer")
+        automatic = default_max_tokens(text)
+        if configured is None:
+            return automatic
+        return configured
+
+    def _diagnostic(self, event: str, *, persist: bool = False, **fields: object) -> None:
+        """Emit source-safe diagnostics to stderr and the configured error log when requested."""
+        if not self._debug_enabled and not persist:
+            return
+        payload = {
+            "event": f"tts_{event}",
+            "timestamp": datetime.now(UTC).isoformat(),
+            **self._debug_chunk,
+            **fields,
+        }
+        encoded = json.dumps(payload, sort_keys=True)
+        if self._debug_enabled:
+            print(encoded, file=sys.stderr, flush=True)
+        if self._error_log_path is None:
+            return
+        try:
+            self._error_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._error_log_path.open("a", encoding="utf-8", newline="\n") as log_file:
+                log_file.write(f"{encoded}\n")
+        except OSError:
+            return
 
     def close(self) -> None:
         self._model = None
