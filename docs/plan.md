@@ -27,6 +27,7 @@ OCR, EPUB, DOCX, remote URL fetching, cloud synchronization, summarization, tran
 - [x] (2026-08-16 05:17Z) Complete Milestone 4's MVP scope: integrate MLX-Audio Qwen3-TTS, one-chunk generation-ahead, macOS playback, pause, and resume.
 - [x] (2026-08-20) Replace application environment-variable configuration with generated TOML configuration at `~/.local-natural-tts-reader/config.toml`, including an explicit `--config` profile override.
 - [x] (2026-08-23) Add `reader documents list` to recover document IDs with import, playback, chunk, warning, and cached-audio metadata.
+- [x] (2026-08-24) Add `reader export wav` to stream a complete cached narration profile into one atomic WAV file.
 - [ ] Complete Milestone 5: add the loopback API and local drag-and-drop React interface.
 - [ ] Complete the post-MVP portions of Milestone 6: comparative model benchmarks and the API/frontend acceptance matrix. The CLI MVP hardening and offline checks are complete.
 - [ ] Evaluate stretch milestones only after the core acceptance scenario passes.
@@ -151,7 +152,7 @@ Add one hardware-marked integration test that synthesizes a short English fixtur
 
 Implement `playback/afplay.py` with owned child-process lifecycle, zero-exit confirmation, stop handling, and no shell interpolation. Implement `application/playback_service.py` and extend the synthesis service with a bounded generation-ahead queue. Default to one synthesis worker and two ready chunks. Persist the next confirmed chunk only after successful playback. If playback catches generation, show buffering state and wait; never skip.
 
-Add `reader doctor`, `reader models verify`, `reader speak`, `reader pause`, and `reader resume`. `reader speak` must accept a document ID, voice, language, style instruction, and speed profile; validate capability combinations; and print model-load, generation, buffering, cache, and playback progress without printing document text.
+Add `reader doctor`, `reader models verify`, `reader speak`, `reader export wav`, `reader pause`, and `reader resume`. `reader speak` must accept a document ID, voice, language, style instruction, and speed profile; validate capability combinations; and print model-load, generation, buffering, cache, and playback progress without printing document text. `reader export wav` must stream every validated cached chunk for the latest profile in ordinal order, fail when cache coverage is incomplete, and atomically create a PCM WAV without loading the full document audio into memory.
 
 Acceptance is the primary user demonstration: ingest a multi-paragraph supported file, preview it, run `reader speak`, hear Qwen3-TTS audio after the first chunk completes while a later chunk generates, interrupt playback, then run `reader resume` and hear it continue from the last unconfirmed chunk. Logs and status demonstrate that completed chunks were not regenerated. Repeat with network access disabled and preinstalled weights. Run quality gates plus the explicitly enabled hardware test.
 

@@ -17,6 +17,7 @@ from local_tts_reader.domain.models import (
     DocumentStatus,
     SpeakResult,
     SynthesisProfile,
+    WavExportResult,
     document_text,
 )
 from local_tts_reader.ingestion.registry import extractor_for, import_source
@@ -25,6 +26,7 @@ from local_tts_reader.storage.artifacts import (
     atomic_write_json,
     atomic_write_text,
     cache_usage,
+    concatenate_wavs,
 )
 from local_tts_reader.storage.database import Database
 from local_tts_reader.storage.repositories import Repository
@@ -214,6 +216,37 @@ class ReaderApplication:
     def list_documents(self) -> tuple[DocumentListEntry, ...]:
         """Return local-library metadata for selecting a document by ID."""
         return self.repository.list_documents()
+
+    def export_wav(self, document_id: str) -> WavExportResult:
+        """Combine one complete cached narration profile into a single WAV file."""
+        profile = self.repository.latest_profile(document_id)
+        chunks = self.get_chunks(document_id)
+        artifacts = self.repository.list_audio_for_document(document_id, profile.profile_hash)
+        artifacts_by_chunk = {artifact.chunk_id: artifact for artifact in artifacts}
+        missing_ordinals = [
+            str(chunk.ordinal + 1) for chunk in chunks if chunk.chunk_id not in artifacts_by_chunk
+        ]
+        if missing_ordinals:
+            examples = ", ".join(missing_ordinals[:5])
+            raise ValueError(
+                "cached audio is incomplete; run 'reader speak' first "
+                f"(missing chunk numbers: {examples})"
+            )
+        ordered_paths = tuple(artifacts_by_chunk[chunk.chunk_id].path for chunk in chunks)
+        destination = (
+            self.settings.data_dir / "exports" / f"{document_id}-{profile.profile_hash[:12]}.wav"
+        )
+        info = concatenate_wavs(ordered_paths, destination)
+        return WavExportResult(
+            document_id=document_id,
+            profile_hash=profile.profile_hash,
+            path=destination,
+            chunk_count=len(chunks),
+            duration_seconds=info.duration_seconds,
+            sample_rate=info.sample_rate,
+            channels=info.channels,
+            bytes=destination.stat().st_size,
+        )
 
     def cache_inspect(self) -> dict[str, int]:
         """Return local audio cache usage."""

@@ -4,6 +4,9 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
+
 from local_tts_reader.application.pipeline import ReaderApplication
 from local_tts_reader.config import Settings
 from local_tts_reader.domain.models import AudioArtifact, SpeakResult, SynthesisProfile
@@ -73,6 +76,39 @@ def test_documents_list_includes_import_and_audio_metadata(
     assert after_speech.ready_chunk_count == after_speech.chunk_count
     assert after_speech.cached_audio_count == after_speech.chunk_count
     assert after_speech.cached_audio_seconds > 0
+
+
+def test_export_wav_concatenates_cached_chunks_in_order(tmp_path: Path) -> None:
+    source = tmp_path / "chapters.txt"
+    source.write_text(
+        "First passage introduces the topic.\n\n"
+        "Second passage continues the explanation.\n\n"
+        "Third passage closes the chapter.\n"
+    )
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        chunk_target_chars=20,
+        chunk_hard_limit_chars=40,
+        min_free_bytes=0,
+    )
+    app = ReaderApplication(settings)
+    document = app.ingest(source)
+    profile = SynthesisProfile(engine="fake", model="fake-tone")
+    app.speak(document.document_id, profile, FakeTtsEngine(), FakePlaybackBackend())
+
+    result = app.export_wav(document.document_id)
+    artifacts = app.repository.list_audio_for_document(document.document_id, profile.profile_hash)
+    expected = np.concatenate(
+        [sf.read(artifact.path, dtype="int16", always_2d=True)[0] for artifact in artifacts]
+    )
+    actual, sample_rate = sf.read(result.path, dtype="int16", always_2d=True)
+
+    assert len(artifacts) == len(app.get_chunks(document.document_id))
+    assert result.chunk_count == len(artifacts)
+    assert result.duration_seconds > 0
+    assert result.path.is_file()
+    assert sample_rate == result.sample_rate
+    np.testing.assert_array_equal(actual, expected)
 
 
 def test_profile_change_invalidates_audio_only(tmp_path: Path, fixture_root: Path) -> None:

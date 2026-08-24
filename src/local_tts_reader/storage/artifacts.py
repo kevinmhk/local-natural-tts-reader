@@ -61,3 +61,37 @@ def cache_usage(audio_root: Path) -> tuple[int, int]:
     """Return file count and total bytes in the local audio cache."""
     files = [path for path in audio_root.rglob("*.wav") if path.is_file()]
     return len(files), sum(path.stat().st_size for path in files)
+
+
+def concatenate_wavs(paths: tuple[Path, ...], destination: Path) -> WavInfo:
+    """Stream matching WAV files into one atomic PCM WAV export."""
+    if not paths:
+        raise ValueError("cannot export an empty WAV sequence")
+    first = validate_wav(paths[0])
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp.wav"
+    try:
+        with sf.SoundFile(
+            temporary,
+            mode="w",
+            samplerate=first.sample_rate,
+            channels=first.channels,
+            format="WAV",
+            subtype="PCM_16",
+        ) as output:
+            for path in paths:
+                info = validate_wav(path)
+                if info.sample_rate != first.sample_rate or info.channels != first.channels:
+                    raise ValueError(f"cached audio format does not match export: {path}")
+                with sf.SoundFile(path, mode="r") as source:
+                    for block in source.blocks(
+                        blocksize=65_536,
+                        dtype="int16",
+                        always_2d=True,
+                    ):
+                        output.write(block)
+        exported = validate_wav(temporary)
+        temporary.replace(destination)
+        return exported
+    finally:
+        temporary.unlink(missing_ok=True)

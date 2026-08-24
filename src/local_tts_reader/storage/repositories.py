@@ -169,6 +169,35 @@ class Repository:
                 ),
             )
 
+    def list_audio_for_document(
+        self,
+        document_id: str,
+        profile_hash: str,
+    ) -> tuple[AudioArtifact, ...]:
+        """Return one profile's cached document audio in chunk order."""
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT audio_artifacts.*
+                FROM chunks
+                JOIN audio_artifacts ON audio_artifacts.chunk_id = chunks.chunk_id
+                WHERE chunks.document_id = ? AND audio_artifacts.profile_hash = ?
+                ORDER BY chunks.ordinal
+                """,
+                (document_id, profile_hash),
+            ).fetchall()
+        return tuple(
+            AudioArtifact(
+                cache_key=row["cache_key"],
+                chunk_id=row["chunk_id"],
+                profile_hash=row["profile_hash"],
+                path=Path(row["path"]),
+                duration_seconds=row["duration_seconds"],
+                sample_rate=row["sample_rate"],
+            )
+            for row in rows
+        )
+
     def get_session(self, document_id: str, profile_hash: str) -> SessionRecord | None:
         with self.database.connect() as connection:
             row = connection.execute(

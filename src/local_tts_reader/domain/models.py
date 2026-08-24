@@ -116,6 +116,19 @@ class SpeakResult(FrozenModel):
     next_ordinal: int = 0
 
 
+class WavExportResult(FrozenModel):
+    """Summary of a complete document WAV export."""
+
+    document_id: str
+    profile_hash: str
+    path: Path
+    chunk_count: int
+    duration_seconds: float
+    sample_rate: int
+    channels: int
+    bytes: int
+
+
 class DocumentStatus(FrozenModel):
     """User-visible status summary."""
 

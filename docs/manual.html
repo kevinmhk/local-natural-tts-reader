@@ -1333,6 +1333,13 @@ min_free_bytes = 268435456</code></pre>
           <pre><code id="cmd-no-play">uv run --no-sync reader speak DOCUMENT_ID --no-play</code></pre>
         </div>
 
+        <h3>Export one complete WAV</h3>
+        <div class="command">
+          <div class="command-bar"><span>Complete cached narration</span><button class="copy-button" type="button" data-copy-target="cmd-export-wav">Copy</button></div>
+          <pre><code id="cmd-export-wav">uv run --no-sync reader export wav DOCUMENT_ID</code></pre>
+        </div>
+        <p>After all chunks for the latest narration profile are cached, this streams them in order into one PCM WAV under <code>exports/</code>. It fails rather than creating a partial document export.</p>
+
         <h3>Run a fast diagnostic without MLX</h3>
         <div class="command">
           <div class="command-bar"><span>Fake engine</span><button class="copy-button" type="button" data-copy-target="cmd-fake">Copy</button></div>
@@ -1363,6 +1370,7 @@ min_free_bytes = 268435456</code></pre>
               <tr><td><code>reader ingest PATH</code></td><td>Imports, extracts, cleans, chunks, and returns a document ID</td><td>No</td></tr>
               <tr><td><code>reader preview ID [--stdout]</code></td><td>Shows metadata, warnings, preview path, and optional exact text</td><td>No</td></tr>
               <tr><td><code>reader speak ID [OPTIONS]</code></td><td>Generates ahead, caches WAV files, and plays in order</td><td>No</td></tr>
+              <tr><td><code>reader export wav ID</code></td><td>Combines a complete cached narration profile into one PCM WAV</td><td>No</td></tr>
               <tr><td><code>reader pause ID</code></td><td>Requests a cooperative pause for saved sessions</td><td>No</td></tr>
               <tr><td><code>reader resume ID [--no-play]</code></td><td>Resumes the latest profile at its last unconfirmed chunk</td><td>No</td></tr>
               <tr><td><code>reader status ID</code></td><td>Shows document, chunk, cache-ready, and playback progress</td><td>No</td></tr>
@@ -1424,7 +1432,7 @@ uv run --no-sync reader cache --help</code></pre>
 |       |-- cleaned/preview.txt
 |       `-- chunks/manifest.json
 |-- audio/
-|-- exports/
+|-- exports/DOCUMENT_ID-PROFILE_HASH.wav
 `-- tmp/</code></pre>
         </div>
       </section>
@@ -1483,6 +1491,7 @@ uv run --no-sync reader cache prune --dry-run</code></pre>
           <div class="command-bar"><span>Destructive / unreferenced WAV only</span><button class="copy-button" type="button" data-copy-target="cmd-cache-delete">Copy</button></div>
           <pre><code id="cmd-cache-delete">uv run --no-sync reader cache prune --delete</code></pre>
         </div>
+        <p>Cache pruning does not delete files under <code>exports/</code>; remove completed exports manually when you no longer need them.</p>
 
         <h3>Update the source checkout</h3>
         <div class="command">
@@ -1610,6 +1619,7 @@ uv run --no-sync reader ingest "/absolute/path/to/document.pdf"
 # Replace DOCUMENT_ID below.
 uv run --no-sync reader preview DOCUMENT_ID --stdout
 uv run --no-sync reader speak DOCUMENT_ID
+uv run --no-sync reader export wav DOCUMENT_ID
 
 # From another terminal if needed.
 uv run --no-sync reader pause DOCUMENT_ID

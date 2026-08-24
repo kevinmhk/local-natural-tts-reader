@@ -86,6 +86,12 @@ Start local Qwen narration with the default Aiden voice:
 uv run --no-sync reader speak DOCUMENT_ID
 ```
 
+Create one WAV containing the complete cached narration in chunk order:
+
+```sh
+uv run --no-sync reader export wav DOCUMENT_ID
+```
+
 Pause from another terminal and resume later:
 
 ```sh

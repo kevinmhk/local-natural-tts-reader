@@ -30,9 +30,11 @@ app = typer.Typer(no_args_is_help=True, help="Private local document narration."
 models_app = typer.Typer(no_args_is_help=True, help="Explicit local model management.")
 cache_app = typer.Typer(no_args_is_help=True, help="Inspect and prune generated audio.")
 documents_app = typer.Typer(no_args_is_help=True, help="Find imported local documents.")
+export_app = typer.Typer(no_args_is_help=True, help="Create completed local audio exports.")
 app.add_typer(models_app, name="models")
 app.add_typer(cache_app, name="cache")
 app.add_typer(documents_app, name="documents")
+app.add_typer(export_app, name="export")
 
 
 def _settings(ctx: typer.Context) -> Settings:
@@ -174,6 +176,16 @@ def documents_list(ctx: typer.Context) -> None:
             "documents": [entry.model_dump(mode="json") for entry in entries],
         }
     )
+
+
+@export_app.command("wav")
+def export_wav(ctx: typer.Context, document_id: str) -> None:
+    """Combine a complete cached narration into one WAV file."""
+    try:
+        _echo_model(_application(ctx).export_wav(document_id))
+    except (KeyError, OSError, ValueError) as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(2) from error
 
 
 def _profile(
