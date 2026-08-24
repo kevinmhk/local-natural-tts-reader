@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import tomllib
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,10 @@ DEFAULT_INSTRUCTION = (
     "Calm, clear long-form narration with restrained expression and natural pauses."
 )
 DEFAULT_SPEED = 1.0
+DEFAULT_CHUNK_TARGET_CHARS = 280
+DEFAULT_CHUNK_HARD_LIMIT_CHARS = 360
+LEGACY_CHUNK_TARGET_CHARS = 1_200
+LEGACY_CHUNK_HARD_LIMIT_CHARS = 1_800
 
 
 class ConfigurationError(ValueError):
@@ -64,8 +68,8 @@ class Settings:
     default_speed: float = DEFAULT_SPEED
     max_file_bytes: int = 100 * 1024 * 1024
     max_pdf_pages: int = 2_000
-    chunk_target_chars: int = 1_200
-    chunk_hard_limit_chars: int = 1_800
+    chunk_target_chars: int = DEFAULT_CHUNK_TARGET_CHARS
+    chunk_hard_limit_chars: int = DEFAULT_CHUNK_HARD_LIMIT_CHARS
     paragraph_pause_ms: int = 350
     section_pause_ms: int = 800
     min_free_bytes: int = 256 * 1024 * 1024
@@ -126,7 +130,7 @@ class Settings:
         if unknown:
             raise ConfigurationError(f"unknown configuration key: {unknown[0]}")
         defaults = cls(data_dir=fallback_data_dir, config_path=path)
-        return cls(
+        settings = cls(
             data_dir=_resolved_path(
                 Path(_string(raw.get("data_dir", str(defaults.data_dir)), "data_dir"))
             ),
@@ -170,6 +174,17 @@ class Settings:
             ),
             config_path=path,
         )
+        if (
+            settings.chunk_target_chars == LEGACY_CHUNK_TARGET_CHARS
+            and settings.chunk_hard_limit_chars == LEGACY_CHUNK_HARD_LIMIT_CHARS
+        ):
+            settings = replace(
+                settings,
+                chunk_target_chars=DEFAULT_CHUNK_TARGET_CHARS,
+                chunk_hard_limit_chars=DEFAULT_CHUNK_HARD_LIMIT_CHARS,
+            )
+            settings.write(path)
+        return settings
 
     def write(self, config_path: Path | None = None) -> Path:
         """Write this settings object as a commented, editable TOML configuration."""
@@ -194,7 +209,7 @@ class Settings:
                 f"default_instruction = {json.dumps(self.default_instruction)}",
                 f"default_speed = {self.default_speed}",
                 "",
-                "# Safety, chunking, and pacing limits.",
+                "# Safety, chunking, and pacing limits. Keep Qwen3-TTS chunks short.",
                 f"max_file_bytes = {self.max_file_bytes}",
                 f"max_pdf_pages = {self.max_pdf_pages}",
                 f"chunk_target_chars = {self.chunk_target_chars}",

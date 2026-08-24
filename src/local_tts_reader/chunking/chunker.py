@@ -10,11 +10,11 @@ from local_tts_reader.domain.models import Chunk, Document, sha256_text
 class ChunkingConfig:
     """Deterministic chunk-size and pacing policy."""
 
-    target_chars: int = 1_200
-    hard_limit_chars: int = 1_800
+    target_chars: int = 280
+    hard_limit_chars: int = 360
     paragraph_pause_ms: int = 350
     section_pause_ms: int = 800
-    version: str = "1"
+    version: str = "2"
 
     def __post_init__(self) -> None:
         if self.target_chars <= 0 or self.hard_limit_chars < self.target_chars:

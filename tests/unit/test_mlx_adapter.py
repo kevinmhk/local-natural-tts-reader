@@ -12,6 +12,7 @@ from local_tts_reader.tts import mlx_qwen
 from local_tts_reader.tts.mlx_qwen import (
     MlxQwenTtsEngine,
     ModelUnavailableError,
+    SynthesisLimitError,
     installed_model_revision,
 )
 
@@ -20,6 +21,7 @@ from local_tts_reader.tts.mlx_qwen import (
 class _Result:
     audio: np.ndarray
     sample_rate: int = 24_000
+    token_count: int = 32
 
 
 class _Model:
@@ -31,6 +33,12 @@ class _Model:
     def generate_custom_voice(self, **kwargs: object) -> list[_Result]:
         self.calls.append(kwargs)
         return [_Result(np.full(2_400, 0.01, dtype=np.float32))]
+
+
+class _LimitModel(_Model):
+    def generate_custom_voice(self, **kwargs: object) -> list[_Result]:
+        self.calls.append(kwargs)
+        return [_Result(np.full(2_400, 0.01, dtype=np.float32), token_count=256)]
 
 
 def test_mlx_adapter_dispatches_custom_voice_and_promotes_wav(tmp_path: Path) -> None:
@@ -67,9 +75,34 @@ def test_mlx_adapter_dispatches_custom_voice_and_promotes_wav(tmp_path: Path) ->
             "speaker": "Aiden",
             "language": "English",
             "instruct": "Calm narration.",
+            "max_tokens": 256,
         }
     ]
     assert validate_wav(artifact.path).duration_seconds >= 0.19
+
+
+def test_mlx_adapter_rejects_generation_that_hits_its_token_limit(tmp_path: Path) -> None:
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{}")
+    (model_dir / "model.safetensors").write_bytes(b"test-weights")
+    model = _LimitModel()
+    engine = MlxQwenTtsEngine(model_loader=lambda _: model)
+    profile = SynthesisProfile(engine="mlx-audio", model=str(model_dir))
+    chunk = Chunk(
+        chunk_id="chunk",
+        document_id="document",
+        ordinal=0,
+        text="A local sentence.",
+        text_hash="text-hash",
+        boundary="paragraph",
+        pause_after_ms=100,
+    )
+
+    with pytest.raises(SynthesisLimitError, match="generation limit"):
+        engine.synthesize(chunk, profile, tmp_path / "audio.wav")
+
+    assert not (tmp_path / "audio.wav").exists()
 
 
 def test_missing_model_resolution_is_offline_only(

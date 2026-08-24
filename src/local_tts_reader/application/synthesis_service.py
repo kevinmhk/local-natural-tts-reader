@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 from local_tts_reader.domain.models import AudioArtifact, Chunk, SynthesisProfile
-from local_tts_reader.storage.artifacts import audio_path, validate_wav
+from local_tts_reader.storage.artifacts import audio_path, validate_narration_wav
 from local_tts_reader.storage.repositories import Repository
 from local_tts_reader.tts.base import TtsEngine
 
@@ -34,7 +34,7 @@ class SynthesisService:
         cached = self.repository.get_audio(key)
         if cached is not None:
             try:
-                validate_wav(cached.path)
+                validate_narration_wav(cached.path)
             except (OSError, ValueError, RuntimeError):
                 pass
             else:
@@ -50,7 +50,7 @@ class SynthesisService:
         artifact = engine.synthesize(chunk, profile, destination)
         if artifact.cache_key != key:
             artifact = artifact.model_copy(update={"cache_key": key})
-        validate_wav(artifact.path)
+        validate_narration_wav(artifact.path)
         self.repository.save_audio(artifact)
         self.repository.mark_chunk_ready(chunk.chunk_id)
         return artifact, False

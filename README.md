@@ -128,6 +128,11 @@ voice, language, instruction, speed, source/PDF limits, chunk limits, pauses, an
 space. Command-specific narration options such as `reader speak --voice Ryan` override the
 stored default for that invocation.
 
+The default chunk limits are deliberately short (`280` target characters and `360` hard-limit
+characters) for reliable Qwen3-TTS completion. Generated WAVs that hit Qwen's generation limit
+or end in more than three seconds of silence are rejected rather than cached. On the next reader
+command, the former default pair of `1200` and `1800` is migrated once to these safer values.
+
 Use a separate config and workspace for a different profile or test run:
 
 ```sh

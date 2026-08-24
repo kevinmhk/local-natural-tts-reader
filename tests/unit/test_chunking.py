@@ -32,6 +32,14 @@ def test_chunking_is_deterministic_and_lossless() -> None:
     assert "\n\n".join(chunk.text for chunk in first) == document_text(document)
 
 
+def test_default_chunking_policy_is_short_for_qwen_tts() -> None:
+    config = ChunkingConfig()
+
+    assert config.target_chars == 280
+    assert config.hard_limit_chars == 360
+    assert config.version == "2"
+
+
 def test_oversized_sentence_uses_a_forced_unicode_safe_boundary() -> None:
     text = "word " * 60
     document = Document(

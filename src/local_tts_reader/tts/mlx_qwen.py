@@ -28,6 +28,16 @@ class ModelUnavailableError(RuntimeError):
     """Raised when normal runtime cannot find already downloaded weights."""
 
 
+class SynthesisLimitError(RuntimeError):
+    """Raised when Qwen3-TTS does not terminate before its output limit."""
+
+
+def default_max_tokens(text: str) -> int:
+    """Return a conservative Qwen3-TTS token budget for one short text chunk."""
+    word_count = len(text.split())
+    return min(1_024, max(256, 64 + (word_count * 8)))
+
+
 def model_directory(models_root: Path, model_id: str) -> Path:
     """Map one repository ID to an application-owned local directory."""
     return models_root / model_id.replace("/", "--")
@@ -160,16 +170,29 @@ class MlxQwenTtsEngine:
         instruction = profile.instruction
         if profile.speed != 1.0:
             instruction = f"{instruction} Speak at approximately {profile.speed:.2f}x normal pace."
+        generation = dict(profile.generation)
+        max_tokens = generation.setdefault("max_tokens", default_max_tokens(chunk.text))
+        if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0:
+            raise ValueError("generation.max_tokens must be a positive integer")
         generator = self._model.generate_custom_voice(
             text=chunk.text,
             speaker=profile.speaker,
             language=profile.language,
             instruct=instruction,
-            **profile.generation,
+            **generation,
         )
         results = list(generator)
         if not results:
             raise RuntimeError("MLX-Audio returned no audio")
+        if any(
+            isinstance(getattr(result, "token_count", None), int)
+            and result.token_count >= max_tokens
+            for result in results
+        ):
+            raise SynthesisLimitError(
+                "Qwen3-TTS reached its generation limit before completing the passage; "
+                "use shorter chunks and retry"
+            )
         arrays = [np.asarray(result.audio, dtype=np.float32).reshape(-1) for result in results]
         sample_rate = int(
             getattr(results[0], "sample_rate", 0)

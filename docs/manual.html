@@ -1168,11 +1168,11 @@ default_language = "English"
 default_instruction = "Calm, clear long-form narration with restrained expression and natural pauses."
 default_speed = 1.0
 
-# Safety, chunking, and pacing limits.
+# Safety, chunking, and pacing limits. Keep Qwen3-TTS chunks short.
 max_file_bytes = 104857600
 max_pdf_pages = 2000
-chunk_target_chars = 1200
-chunk_hard_limit_chars = 1800
+chunk_target_chars = 280
+chunk_hard_limit_chars = 360
 paragraph_pause_ms = 350
 section_pause_ms = 800
 min_free_bytes = 268435456</code></pre>
@@ -1184,6 +1184,11 @@ min_free_bytes = 268435456</code></pre>
             and resume positions live in its configured <code>data_dir</code>. Commands that use
             a different configuration file appear to have a different library.</p>
         </div>
+
+        <p>The former default pair of <code>1200</code> and <code>1800</code> is automatically
+          migrated once to <code>280</code> and <code>360</code> when the reader next loads the
+          configuration. This changes only future imports; existing documents retain their saved
+          chunk manifests until explicitly rebuilt.</p>
 
         <h3>Alternate profiles and environment reference</h3>
         <p>For a separate profile or an isolated test workspace, put <code>--config</code> before
@@ -1229,7 +1234,7 @@ min_free_bytes = 268435456</code></pre>
         <div class="definition-grid">
           <div class="definition-card"><h3>100 MB</h3><p>Maximum imported source size.</p></div>
           <div class="definition-card"><h3>2,000 pages</h3><p>Maximum PDF page count.</p></div>
-          <div class="definition-card"><h3>1,200 / 1,800</h3><p>Target and hard-limit chunk characters.</p></div>
+          <div class="definition-card"><h3>280 / 360</h3><p>Target and hard-limit chunk characters, kept short for reliable Qwen narration.</p></div>
           <div class="definition-card"><h3>256 MB</h3><p>Minimum free disk space before synthesis.</p></div>
         </div>
         <p>These advanced limits are values in the TOML configuration. Edit them deliberately and
@@ -1558,7 +1563,7 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <details>
           <summary>Playback is silent or fails</summary>
           <div class="details-body">
-            <p>Confirm <code>reader doctor</code> shows <code>/usr/bin/afplay</code>, check the Mac output device and volume, and run the same command with <code>--no-play</code>. If silent generation succeeds, the model and cache are working and the issue is in audio playback.</p>
+            <p>Confirm <code>reader doctor</code> shows <code>/usr/bin/afplay</code>, check the Mac output device and volume, and run the same command with <code>--no-play</code>. The reader rejects newly generated WAVs that reach Qwen's generation limit or end with more than three seconds of silence; if that error appears, reduce the configured chunk limits and import a new document after correcting the configuration.</p>
           </div>
         </details>
 

@@ -147,6 +147,34 @@ def test_corrupt_cached_audio_is_regenerated(tmp_path: Path, fixture_root: Path)
     assert replay.cache_hit_count == len(app.get_chunks(document.document_id)) - 1
 
 
+def test_cached_audio_with_a_long_silent_tail_is_regenerated(
+    tmp_path: Path, fixture_root: Path
+) -> None:
+    app = ReaderApplication(Settings(data_dir=tmp_path / "data"))
+    document = app.ingest(fixture_root / "text" / "two_paragraphs.txt")
+    profile = SynthesisProfile(engine="fake", model="fake-tone")
+    app.speak(document.document_id, profile, FakeTtsEngine(), FakePlaybackBackend())
+    cached_paths = sorted(app.repository.referenced_audio_paths())
+    assert cached_paths
+    damaged = np.concatenate(
+        (
+            np.full(2_400, 0.03, dtype=np.float32),
+            np.zeros(24_000 * 5, dtype=np.float32),
+        )
+    )
+    sf.write(cached_paths[0], damaged, 24_000, format="WAV", subtype="PCM_16")
+
+    replay = app.speak(
+        document.document_id,
+        profile,
+        FakeTtsEngine(),
+        FakePlaybackBackend(),
+    )
+
+    assert replay.generated_count == 1
+    assert replay.cache_hit_count == len(app.get_chunks(document.document_id)) - 1
+
+
 class _BlockingPlayback:
     def __init__(self) -> None:
         self.started = threading.Event()

@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import soundfile as sf
+
+_AUDIBLE_SAMPLE_THRESHOLD = 0.005
+_MAX_TRAILING_SILENCE_SECONDS = 3.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +54,31 @@ def validate_wav(path: Path) -> WavInfo:
         sample_rate=info.samplerate,
         channels=info.channels,
     )
+
+
+def validate_narration_wav(path: Path) -> WavInfo:
+    """Reject WAVs with no speech or an implausibly long silent tail."""
+    info = validate_wav(path)
+    last_audible_frame = -1
+    with sf.SoundFile(path, mode="r") as source:
+        offset = 0
+        for block in source.blocks(blocksize=65_536, dtype="float32", always_2d=True):
+            audible = np.any(np.abs(block) >= _AUDIBLE_SAMPLE_THRESHOLD, axis=1)
+            indices = np.flatnonzero(audible)
+            if len(indices):
+                last_audible_frame = offset + int(indices[-1])
+            offset += len(block)
+    if last_audible_frame < 0:
+        raise ValueError(f"audio artifact contains no audible speech: {path}")
+    trailing_silence_seconds = (
+        info.duration_seconds * info.sample_rate - last_audible_frame - 1
+    ) / info.sample_rate
+    if trailing_silence_seconds > _MAX_TRAILING_SILENCE_SECONDS:
+        raise ValueError(
+            "audio artifact has an implausibly long silent tail "
+            f"({trailing_silence_seconds:.1f} seconds): {path}"
+        )
+    return info
 
 
 def audio_path(audio_root: Path, cache_key: str) -> Path:
