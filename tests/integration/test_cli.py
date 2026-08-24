@@ -5,6 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from local_tts_reader import cli
 from local_tts_reader.cli import app
 from local_tts_reader.config import Settings
 
@@ -87,3 +88,68 @@ def test_cli_fake_reader_workflow(tmp_path: Path, fixture_root: Path) -> None:
     assert entry["ready_chunk_count"] == entry["chunk_count"]
     assert entry["cached_audio_count"] == entry["chunk_count"]
     assert entry["cached_audio_seconds"] > 0
+
+
+def test_cli_document_delete_is_previewable_and_interactive(
+    tmp_path: Path, fixture_root: Path, monkeypatch
+) -> None:
+    config_path = tmp_path / "config.toml"
+    Settings(data_dir=tmp_path / "data").write(config_path)
+    runner = CliRunner()
+    imported = runner.invoke(
+        app,
+        ["--config", str(config_path), "ingest", str(fixture_root / "text" / "two_paragraphs.txt")],
+    )
+    document_id = json.loads(imported.output)["document_id"]
+    spoken = runner.invoke(
+        app,
+        [
+            "--config",
+            str(config_path),
+            "speak",
+            document_id,
+            "--engine",
+            "fake",
+            "--model",
+            "fake-tone",
+            "--no-play",
+        ],
+    )
+    assert spoken.exit_code == 0, spoken.output
+    exported = runner.invoke(
+        app,
+        ["--config", str(config_path), "export", "wav", document_id],
+    )
+    export_path = Path(json.loads(exported.output)["path"])
+
+    dry_run = runner.invoke(
+        app,
+        ["--config", str(config_path), "documents", "delete", document_id, "--dry-run"],
+    )
+    assert dry_run.exit_code == 0, dry_run.output
+    assert json.loads(dry_run.output)["state"] == "dry_run"
+    assert export_path.is_file()
+
+    blocked = runner.invoke(
+        app,
+        ["--config", str(config_path), "documents", "delete", document_id],
+    )
+    assert blocked.exit_code == 2
+    assert "requires an interactive terminal" in blocked.output
+
+    monkeypatch.setattr(cli, "_interactive_stdin", lambda: True)
+    deleted = runner.invoke(
+        app,
+        ["--config", str(config_path), "documents", "delete", document_id],
+        input="y\ny\n",
+    )
+    assert deleted.exit_code == 0, deleted.output
+    assert "Continue [y/N]:" in deleted.output
+    assert "global cache now [Y/n]:" in deleted.output
+    assert '"state": "deleted"' in deleted.output
+    assert '"deleted": 1' in deleted.output
+    assert not export_path.exists()
+
+    listed = runner.invoke(app, ["--config", str(config_path), "documents", "list"])
+    assert listed.exit_code == 0, listed.output
+    assert json.loads(listed.output)["count"] == 0

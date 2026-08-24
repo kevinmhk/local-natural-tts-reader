@@ -80,6 +80,18 @@ metadata:
 uv run --no-sync reader documents list
 ```
 
+To permanently remove one reader-managed document, inspect the scope first and then confirm the
+interactive prompt. This creates no backup; the original source file outside the reader workspace
+is never deleted.
+
+```sh
+uv run --no-sync reader documents delete DOCUMENT_ID --dry-run
+uv run --no-sync reader documents delete DOCUMENT_ID
+```
+
+Use `--keep-exports` to retain complete WAV exports. After deletion, the command offers to prune
+all unreferenced WAVs in the global cache.
+
 Start local Qwen narration with the default Aiden voice:
 
 ```sh

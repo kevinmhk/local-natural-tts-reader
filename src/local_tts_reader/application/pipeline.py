@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import shutil
+from collections.abc import Iterable
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
 from local_tts_reader.application.playback_service import PlaybackService
@@ -31,6 +34,30 @@ from local_tts_reader.storage.artifacts import (
 from local_tts_reader.storage.database import Database
 from local_tts_reader.storage.repositories import Repository
 from local_tts_reader.tts.base import TtsEngine
+
+
+@dataclass(frozen=True, slots=True)
+class _FileSet:
+    """Existing files selected for a document-scoped deletion operation."""
+
+    paths: tuple[Path, ...]
+    bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class _DocumentDeletionPlan:
+    """Resolved local artifacts for one document deletion request."""
+
+    document_id: str
+    source_name: str
+    document_directory: Path
+    document_files: _FileSet
+    audio_files: _FileSet
+    export_files: _FileSet
+    chunk_count: int
+    audio_artifact_count: int
+    playback_session_count: int
+    event_count: int
 
 
 class ReaderApplication:
@@ -217,6 +244,55 @@ class ReaderApplication:
         """Return local-library metadata for selecting a document by ID."""
         return self.repository.list_documents()
 
+    def document_delete_preview(
+        self, document_id: str, *, keep_exports: bool = False
+    ) -> dict[str, object]:
+        """Return the exact reader-managed artifacts selected for deletion."""
+        plan = self._document_deletion_plan(document_id)
+        return self._deletion_result("dry_run", plan, keep_exports=keep_exports)
+
+    def delete_document(self, document_id: str, *, keep_exports: bool = False) -> dict[str, object]:
+        """Delete one document and only its unshared reader-managed artifacts."""
+        plan = self._document_deletion_plan(document_id)
+        self.repository.delete_document(document_id)
+        removed_document_files = self._remove_document_directory(plan.document_directory)
+        removed_audio_files, removed_audio_bytes, shared_audio_files = self._remove_audio_files(
+            plan.audio_files.paths
+        )
+        if keep_exports:
+            removed_export_files = 0
+            removed_export_bytes = 0
+        else:
+            removed_export_files, removed_export_bytes = self._remove_files(plan.export_files.paths)
+        return {
+            "state": "deleted",
+            "document_id": plan.document_id,
+            "source_name": plan.source_name,
+            "removed": {
+                "document_directory": {
+                    "path": str(plan.document_directory),
+                    "files": removed_document_files,
+                    "bytes": plan.document_files.bytes,
+                },
+                "database": {
+                    "chunks": plan.chunk_count,
+                    "audio_artifacts": plan.audio_artifact_count,
+                    "playback_sessions": plan.playback_session_count,
+                    "events": plan.event_count,
+                },
+                "audio_cache": {
+                    "files": removed_audio_files,
+                    "bytes": removed_audio_bytes,
+                    "shared_files_kept": shared_audio_files,
+                },
+                "exports": {
+                    "files": removed_export_files,
+                    "bytes": removed_export_bytes,
+                    "kept": keep_exports,
+                },
+            },
+        }
+
     def export_wav(self, document_id: str) -> WavExportResult:
         """Combine one complete cached narration profile into a single WAV file."""
         document = self.get_document(document_id)
@@ -270,6 +346,104 @@ class ReaderApplication:
             for path in candidates:
                 path.unlink()
         return {"files": len(candidates), "bytes": total_bytes, "deleted": int(not dry_run)}
+
+    def _document_deletion_plan(self, document_id: str) -> _DocumentDeletionPlan:
+        metadata = self.repository.document_deletion_metadata(document_id)
+        document_root = (self.settings.data_dir / "documents").resolve()
+        document_directory = (document_root / document_id).resolve()
+        if not document_directory.is_relative_to(document_root):
+            raise ValueError("document ID resolves outside the configured document workspace")
+        audio_root = (self.settings.data_dir / "audio").resolve()
+        audio_paths = tuple(
+            path
+            for path in metadata["audio_paths"]
+            if path.is_file() and path.resolve().is_relative_to(audio_root)
+        )
+        export_root = self.settings.data_dir / "exports"
+        export_paths = tuple(
+            path for path in export_root.glob(f"*-{document_id}-*.wav") if path.is_file()
+        )
+        return _DocumentDeletionPlan(
+            document_id=document_id,
+            source_name=metadata["source_name"],
+            document_directory=document_directory,
+            document_files=self._file_set(
+                document_directory.rglob("*") if document_directory.is_dir() else ()
+            ),
+            audio_files=self._file_set(audio_paths),
+            export_files=self._file_set(export_paths),
+            chunk_count=metadata["chunk_count"],
+            audio_artifact_count=metadata["audio_artifact_count"],
+            playback_session_count=metadata["playback_session_count"],
+            event_count=metadata["event_count"],
+        )
+
+    @staticmethod
+    def _file_set(paths: Iterable[Path]) -> _FileSet:
+        files = tuple(path for path in paths if path.is_file())
+        return _FileSet(paths=files, bytes=sum(path.stat().st_size for path in files))
+
+    @staticmethod
+    def _remove_document_directory(path: Path) -> int:
+        files = (
+            tuple(candidate for candidate in path.rglob("*") if candidate.is_file())
+            if path.is_dir()
+            else ()
+        )
+        if path.is_dir():
+            shutil.rmtree(path)
+        return len(files)
+
+    @staticmethod
+    def _remove_files(paths: tuple[Path, ...]) -> tuple[int, int]:
+        removed = 0
+        total_bytes = 0
+        for path in paths:
+            if path.is_file():
+                total_bytes += path.stat().st_size
+                path.unlink()
+                removed += 1
+        return removed, total_bytes
+
+    def _remove_audio_files(self, paths: tuple[Path, ...]) -> tuple[int, int, int]:
+        referenced = {path.resolve() for path in self.repository.referenced_audio_paths()}
+        candidates = tuple(path for path in paths if path.resolve() not in referenced)
+        removed, total_bytes = self._remove_files(candidates)
+        return removed, total_bytes, len(paths) - len(candidates)
+
+    @staticmethod
+    def _deletion_result(
+        state: str, plan: _DocumentDeletionPlan, *, keep_exports: bool
+    ) -> dict[str, object]:
+        export_files = 0 if keep_exports else len(plan.export_files.paths)
+        export_bytes = 0 if keep_exports else plan.export_files.bytes
+        return {
+            "state": state,
+            "document_id": plan.document_id,
+            "source_name": plan.source_name,
+            "removed": {
+                "document_directory": {
+                    "path": str(plan.document_directory),
+                    "files": len(plan.document_files.paths),
+                    "bytes": plan.document_files.bytes,
+                },
+                "database": {
+                    "chunks": plan.chunk_count,
+                    "audio_artifacts": plan.audio_artifact_count,
+                    "playback_sessions": plan.playback_session_count,
+                    "events": plan.event_count,
+                },
+                "audio_cache": {
+                    "files": len(plan.audio_files.paths),
+                    "bytes": plan.audio_files.bytes,
+                },
+                "exports": {
+                    "files": export_files,
+                    "bytes": export_bytes,
+                    "kept": keep_exports,
+                },
+            },
+        }
 
     def debug_dump(self, document_id: str) -> str:
         """Return safe metadata without full source text."""

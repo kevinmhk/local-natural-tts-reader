@@ -309,7 +309,7 @@ The chunker follows this priority order:
 
 There is no overlapping spoken text between chunks because overlap would repeat content. A heading may be its own chunk or may prefix the first paragraph, but it is spoken exactly once.
 
-Initial configurable values are a 1,200-character target, a 1,800-character hard limit, 350 milliseconds after a paragraph, and 800 milliseconds after a section. These are starting hypotheses, not claimed Qwen model limits. The feasibility and benchmark milestones tune them using time-to-first-audio, real-time factor, discontinuity at boundaries, omission/repetition incidence, and user listening preference.
+The current defaults are a 280-character target, a 360-character hard limit, 350 milliseconds after a paragraph, and 800 milliseconds after a section. The former 1,200/1,800 default pair migrates once when the configuration is loaded. These values are tuned for reliable Qwen3-TTS completion; generation that reaches its token budget or ends with an implausibly long silent tail is rejected rather than cached.
 
 The chunker is deterministic. Re-running it with identical input and configuration produces identical chunk IDs and order.
 
@@ -385,7 +385,7 @@ SQLite uses foreign keys and write-ahead logging. The minimum tables are `docume
 
 The audio cache key contains the chunk text hash, pause policy version, engine adapter version, exact model identity, speaker/voice inputs, language, instruction, speed, and all relevant generation parameters. Changing cleanup or chunking invalidates only downstream artifacts; changing the narrator invalidates audio but not extraction or cleaning.
 
-Artifact pruning is explicit. The system reports reclaimable bytes and requires confirmation before deleting unreferenced audio. Sources and active-session artifacts are never pruned automatically.
+Artifact pruning is explicit. The system reports reclaimable bytes and requires confirmation before deleting unreferenced audio. `reader documents delete <document-id>` provides a document-scoped dry run and interactive deletion: it cascades SQLite metadata, removes the document workspace and its unshared cache WAVs, removes matching exports unless `--keep-exports` is selected, and then optionally offers a global unreferenced-audio prune. It creates no backup and never deletes the original source outside the workspace.
 
 ## 15. CLI and local web interface
 
@@ -395,6 +395,8 @@ The CLI is the first complete interface:
 reader doctor
 reader models verify
 reader documents list
+reader documents delete <document-id> --dry-run
+reader documents delete <document-id>
 reader ingest path/to/document.pdf
 reader preview <document-id>
 reader speak <document-id> --voice Aiden
@@ -406,7 +408,7 @@ reader cache inspect
 reader cache prune --dry-run
 ```
 
-`reader documents list` returns imported-document IDs with source name, title, media type, import date, current playback state, chunk progress, cached-audio count and duration, and warning count. It lets a user recover an ID without inspecting application files. `reader export wav` streams a complete cached narration profile in chunk order to one atomic PCM WAV export; it fails rather than emitting a partial document. `reader doctor` checks Apple silicon, Python and macOS versions, writable data paths, available disk space, `afplay`, MLX importability, configured model availability, and optional `ffmpeg`. It must distinguish a missing local model from a network failure and never download weights without an explicit setup command.
+`reader documents list` returns imported-document IDs with source name, title, media type, import date, current playback state, chunk progress, cached-audio count and duration, and warning count. It lets a user recover an ID without inspecting application files. `reader documents delete` requires `--dry-run` for a non-mutating preview or an interactive terminal for deletion; its first confirmation defaults to no, its optional global-prune confirmation defaults to yes, and `--keep-exports` retains matching full-document WAVs. `reader export wav` streams a complete cached narration profile in chunk order to one atomic PCM WAV export; it fails rather than emitting a partial document. `reader doctor` checks Apple silicon, Python and macOS versions, writable data paths, available disk space, `afplay`, MLX importability, configured model availability, and optional `ffmpeg`. It must distinguish a missing local model from a network failure and never download weights without an explicit setup command.
 
 After the CLI vertical slice passes, a React and TypeScript UI calls a FastAPI server bound to `127.0.0.1`. The API offers file import, preview, profile selection, job status, playback controls, and server-sent progress events. It accepts local uploads rather than arbitrary server paths by default. Cross-origin access is denied except for the configured development origin, and the production server does not bind to the LAN.
 

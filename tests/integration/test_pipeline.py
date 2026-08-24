@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from pathlib import Path
@@ -112,6 +113,28 @@ def test_export_wav_concatenates_cached_chunks_in_order(tmp_path: Path) -> None:
     )
     assert sample_rate == result.sample_rate
     np.testing.assert_array_equal(actual, expected)
+
+
+def test_document_delete_removes_document_artifacts_but_can_keep_exports(tmp_path: Path) -> None:
+    source = tmp_path / "chapters.txt"
+    source.write_text("First passage.\n\nSecond passage.\n")
+    app = ReaderApplication(Settings(data_dir=tmp_path / "data", min_free_bytes=0))
+    document = app.ingest(source)
+    profile = SynthesisProfile(engine="fake", model="fake-tone")
+    app.speak(document.document_id, profile, FakeTtsEngine(), FakePlaybackBackend())
+    export = app.export_wav(document.document_id)
+    audio_paths = tuple(app.repository.referenced_audio_paths())
+
+    preview = app.document_delete_preview(document.document_id, keep_exports=True)
+    result = app.delete_document(document.document_id, keep_exports=True)
+
+    assert preview["state"] == "dry_run"
+    assert '"kept": true' in json.dumps(preview)
+    assert result["state"] == "deleted"
+    assert not (app.settings.data_dir / "documents" / document.document_id).exists()
+    assert export.path.is_file()
+    assert not app.list_documents()
+    assert all(not path.exists() for path in audio_paths)
 
 
 def test_profile_change_invalidates_audio_only(tmp_path: Path, fixture_root: Path) -> None:

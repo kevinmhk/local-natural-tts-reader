@@ -23,6 +23,17 @@ class SessionRecord(TypedDict):
     pause_requested: int
 
 
+class DocumentDeletionMetadata(TypedDict):
+    """Database-owned artifacts associated with one imported document."""
+
+    source_name: str
+    chunk_count: int
+    audio_artifact_count: int
+    audio_paths: tuple[Path, ...]
+    playback_session_count: int
+    event_count: int
+
+
 class Repository:
     """Typed persistence operations used by application services."""
 
@@ -397,3 +408,49 @@ class Repository:
         with self.database.connect() as connection:
             rows = connection.execute("SELECT path FROM audio_artifacts").fetchall()
         return {Path(row["path"]) for row in rows}
+
+    def document_deletion_metadata(self, document_id: str) -> DocumentDeletionMetadata:
+        """Return the database records and paths that document deletion will remove."""
+        with self.database.connect() as connection:
+            document = connection.execute(
+                "SELECT source_name FROM documents WHERE document_id = ?", (document_id,)
+            ).fetchone()
+            if document is None:
+                raise KeyError(f"unknown document: {document_id}")
+            chunk_count = connection.execute(
+                "SELECT COUNT(*) FROM chunks WHERE document_id = ?", (document_id,)
+            ).fetchone()[0]
+            audio_rows = connection.execute(
+                """
+                SELECT audio_artifacts.path
+                FROM audio_artifacts
+                JOIN chunks ON chunks.chunk_id = audio_artifacts.chunk_id
+                WHERE chunks.document_id = ?
+                """,
+                (document_id,),
+            ).fetchall()
+            session_count = connection.execute(
+                "SELECT COUNT(*) FROM playback_sessions WHERE document_id = ?", (document_id,)
+            ).fetchone()[0]
+            event_count = connection.execute(
+                "SELECT COUNT(*) FROM events WHERE document_id = ?", (document_id,)
+            ).fetchone()[0]
+        paths = tuple(Path(row["path"]) for row in audio_rows)
+        return DocumentDeletionMetadata(
+            source_name=str(document["source_name"]),
+            chunk_count=int(chunk_count),
+            audio_artifact_count=len(paths),
+            audio_paths=paths,
+            playback_session_count=int(session_count),
+            event_count=int(event_count),
+        )
+
+    def delete_document(self, document_id: str) -> None:
+        """Delete one document and its foreign-key-owned records atomically."""
+        with self.database.transaction() as connection:
+            connection.execute("DELETE FROM events WHERE document_id = ?", (document_id,))
+            cursor = connection.execute(
+                "DELETE FROM documents WHERE document_id = ?", (document_id,)
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"unknown document: {document_id}")

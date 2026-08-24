@@ -54,6 +54,11 @@ def _echo_model(value: object) -> None:
     typer.echo(json.dumps(value, indent=2, sort_keys=True, default=str))
 
 
+def _interactive_stdin() -> bool:
+    """Return whether destructive confirmation can safely prompt the user."""
+    return sys.stdin.isatty()
+
+
 @app.callback()
 def configure(
     ctx: typer.Context,
@@ -176,6 +181,44 @@ def documents_list(ctx: typer.Context) -> None:
             "documents": [entry.model_dump(mode="json") for entry in entries],
         }
     )
+
+
+@documents_app.command("delete")
+def documents_delete(
+    ctx: typer.Context,
+    document_id: str,
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    keep_exports: bool = typer.Option(False, "--keep-exports"),
+) -> None:
+    """Interactively delete one document and its reader-managed artifacts."""
+    application = _application(ctx)
+    try:
+        preview = application.document_delete_preview(document_id, keep_exports=keep_exports)
+        if dry_run:
+            _echo_model(preview)
+            return
+        if not _interactive_stdin():
+            raise RuntimeError(
+                "destructive deletion requires an interactive terminal; "
+                "use 'reader documents delete DOCUMENT_ID --dry-run' to preview"
+            )
+        typer.echo(
+            f"Document: {preview['source_name']} ({document_id})\n"
+            "Permanently delete this document and its reader-managed artifacts?\n"
+            f"Preview first with: reader documents delete {document_id} --dry-run"
+        )
+        if not typer.confirm("Continue", default=False):
+            _echo_model({"state": "cancelled", "document_id": document_id})
+            return
+        result = application.delete_document(document_id, keep_exports=keep_exports)
+        if typer.confirm("Prune every unreferenced WAV in the global cache now", default=True):
+            result["global_cache_prune"] = application.cache_prune(dry_run=False)
+        else:
+            result["global_cache_prune"] = {"deleted": 0, "skipped": True}
+    except (KeyError, OSError, RuntimeError, ValueError) as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(2) from error
+    _echo_model(result)
 
 
 @export_app.command("wav")

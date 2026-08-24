@@ -1307,6 +1307,18 @@ min_free_bytes = 268435456</code></pre>
         </div>
         <p>The JSON result lists each document ID with its source name, title, media type, import date, current playback state, chunk progress, warning count, and total cached-audio duration.</p>
 
+        <h3>Delete an imported document</h3>
+        <div class="command">
+          <div class="command-bar"><span>Inspect first</span><button class="copy-button" type="button" data-copy-target="cmd-documents-delete-dry-run">Copy</button></div>
+          <pre><code id="cmd-documents-delete-dry-run">uv run --no-sync reader documents delete DOCUMENT_ID --dry-run</code></pre>
+        </div>
+        <p>The dry run reports the document directory, SQLite records, cached chunk WAVs, and matching complete exports that would be removed. It changes nothing.</p>
+        <div class="command">
+          <div class="command-bar"><span>Interactive and permanent</span><button class="copy-button" type="button" data-copy-target="cmd-documents-delete">Copy</button></div>
+          <pre><code id="cmd-documents-delete">uv run --no-sync reader documents delete DOCUMENT_ID</code></pre>
+        </div>
+        <p>The command requires an interactive terminal and asks <code>Continue? [y/N]</code>. It creates no backup, never removes the original source outside the reader workspace, and removes matching exports unless you add <code>--keep-exports</code>. After deletion, it asks <code>Prune every unreferenced WAV in the global cache now? [Y/n]</code>.</p>
+
         <h3>Choose a narration style</h3>
         <div class="command">
           <div class="command-bar"><span>Custom profile</span><button class="copy-button" type="button" data-copy-target="cmd-custom-speak">Copy</button></div>
@@ -1372,6 +1384,7 @@ min_free_bytes = 268435456</code></pre>
               <tr><td><code>reader models setup</code></td><td>Explicitly downloads and verifies a model snapshot</td><td>Yes</td></tr>
               <tr><td><code>reader models verify</code></td><td>Checks for complete local weights without downloading</td><td>No</td></tr>
               <tr><td><code>reader documents list</code></td><td>Lists document IDs with import, playback, warning, and cached-audio metadata</td><td>No</td></tr>
+              <tr><td><code>reader documents delete ID [--dry-run] [--keep-exports]</code></td><td>Previews or interactively deletes one document and its reader-managed artifacts</td><td>No</td></tr>
               <tr><td><code>reader ingest PATH</code></td><td>Imports, extracts, cleans, chunks, and returns a document ID</td><td>No</td></tr>
               <tr><td><code>reader preview ID [--stdout]</code></td><td>Shows metadata, warnings, preview path, and optional exact text</td><td>No</td></tr>
               <tr><td><code>reader speak ID [OPTIONS]</code></td><td>Generates ahead, caches WAV files, and plays in order</td><td>No</td></tr>
