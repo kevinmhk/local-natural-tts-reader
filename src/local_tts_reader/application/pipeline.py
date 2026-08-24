@@ -219,6 +219,7 @@ class ReaderApplication:
 
     def export_wav(self, document_id: str) -> WavExportResult:
         """Combine one complete cached narration profile into a single WAV file."""
+        document = self.get_document(document_id)
         profile = self.repository.latest_profile(document_id)
         chunks = self.get_chunks(document_id)
         artifacts = self.repository.list_audio_for_document(document_id, profile.profile_hash)
@@ -234,7 +235,9 @@ class ReaderApplication:
             )
         ordered_paths = tuple(artifacts_by_chunk[chunk.chunk_id].path for chunk in chunks)
         destination = (
-            self.settings.data_dir / "exports" / f"{document_id}-{profile.profile_hash[:12]}.wav"
+            self.settings.data_dir
+            / "exports"
+            / (f"{Path(document.source_name).name}-{document_id}-{profile.profile_hash[:12]}.wav")
         )
         info = concatenate_wavs(ordered_paths, destination)
         return WavExportResult(

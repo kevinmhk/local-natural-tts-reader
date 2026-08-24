@@ -72,6 +72,9 @@ def test_cli_fake_reader_workflow(tmp_path: Path, fixture_root: Path) -> None:
     assert export_result["document_id"] == document_id
     assert export_result["chunk_count"] == 1
     assert Path(export_result["path"]).is_file()
+    assert Path(export_result["path"]).name == (
+        f"two_paragraphs.txt-{document_id}-{export_result['profile_hash'][:12]}.wav"
+    )
 
     status = runner.invoke(app, ["--config", str(config_path), "status", document_id])
     assert status.exit_code == 0, status.output

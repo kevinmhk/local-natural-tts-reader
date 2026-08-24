@@ -107,6 +107,9 @@ def test_export_wav_concatenates_cached_chunks_in_order(tmp_path: Path) -> None:
     assert result.chunk_count == len(artifacts)
     assert result.duration_seconds > 0
     assert result.path.is_file()
+    assert (
+        result.path.name == f"chapters.txt-{document.document_id}-{profile.profile_hash[:12]}.wav"
+    )
     assert sample_rate == result.sample_rate
     np.testing.assert_array_equal(actual, expected)
 

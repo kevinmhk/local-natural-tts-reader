@@ -92,6 +92,9 @@ Create one WAV containing the complete cached narration in chunk order:
 uv run --no-sync reader export wav DOCUMENT_ID
 ```
 
+Exports are named `SOURCE_NAME-DOCUMENT_ID-PROFILE_HASH.wav` so they remain understandable
+outside the reader while avoiding collisions between narration profiles.
+
 Pause from another terminal and resume later:
 
 ```sh

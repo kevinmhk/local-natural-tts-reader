@@ -376,7 +376,7 @@ server never serves this directory as a static filesystem root.
 |   |-- cleaned/preview.txt
 |   `-- chunks/manifest.json
 |-- audio/<cache-prefix>/<cache-key>.wav
-|-- exports/
+|-- exports/<source-name>-<document-id>-<profile-hash>.wav
 |-- models/                       # optional explicit local model location
 `-- tmp/
 ```

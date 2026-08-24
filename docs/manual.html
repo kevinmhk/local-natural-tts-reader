@@ -1338,7 +1338,7 @@ min_free_bytes = 268435456</code></pre>
           <div class="command-bar"><span>Complete cached narration</span><button class="copy-button" type="button" data-copy-target="cmd-export-wav">Copy</button></div>
           <pre><code id="cmd-export-wav">uv run --no-sync reader export wav DOCUMENT_ID</code></pre>
         </div>
-        <p>After all chunks for the latest narration profile are cached, this streams them in order into one PCM WAV under <code>exports/</code>. It fails rather than creating a partial document export.</p>
+        <p>After all chunks for the latest narration profile are cached, this streams them in order into one PCM WAV under <code>exports/</code>. The name includes the original source filename, document ID, and profile hash so it remains understandable outside the reader. It fails rather than creating a partial document export.</p>
 
         <h3>Run a fast diagnostic without MLX</h3>
         <div class="command">
@@ -1432,7 +1432,7 @@ uv run --no-sync reader cache --help</code></pre>
 |       |-- cleaned/preview.txt
 |       `-- chunks/manifest.json
 |-- audio/
-|-- exports/DOCUMENT_ID-PROFILE_HASH.wav
+|-- exports/SOURCE_NAME-DOCUMENT_ID-PROFILE_HASH.wav
 `-- tmp/</code></pre>
         </div>
       </section>
