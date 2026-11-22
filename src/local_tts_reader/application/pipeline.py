@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,6 +132,7 @@ class ReaderApplication:
         playback: PlaybackBackend,
         *,
         resume_only: bool = False,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> SpeakResult:
         """Generate one chunk ahead, play in order, and persist confirmed progress."""
         chunks = self.get_chunks(document_id)
@@ -145,7 +146,7 @@ class ReaderApplication:
             document_id,
             profile,
             next_ordinal,
-            "synthesizing",
+            "synthesizing" if next_ordinal < len(chunks) else "complete",
             clear_pause=True,
         )
         generated = 0
@@ -158,6 +159,8 @@ class ReaderApplication:
         future: Future[tuple[AudioArtifact, bool]] | None = None
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tts-ahead")
         try:
+            if on_progress is not None:
+                on_progress(next_ordinal, len(chunks))
             for index in range(next_ordinal, len(chunks)):
                 chunk = chunks[index]
                 if future is None:
@@ -195,6 +198,8 @@ class ReaderApplication:
                     "playable" if next_ordinal < len(chunks) else "complete",
                     clear_pause=True,
                 )
+                if on_progress is not None:
+                    on_progress(next_ordinal, len(chunks))
             return SpeakResult(
                 state="complete",
                 generated_count=generated,
@@ -221,6 +226,8 @@ class ReaderApplication:
         document_id: str,
         engine: TtsEngine,
         playback: PlaybackBackend,
+        *,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> SpeakResult:
         """Resume the latest saved profile at its last unconfirmed chunk."""
         profile = self.repository.latest_profile(document_id)
@@ -230,6 +237,7 @@ class ReaderApplication:
             engine,
             playback,
             resume_only=True,
+            on_progress=on_progress,
         )
 
     def request_pause(self, document_id: str) -> int:

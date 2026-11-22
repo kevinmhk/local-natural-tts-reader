@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import uuid
 from pathlib import Path
 
 from local_tts_reader.domain.models import AudioArtifact, Chunk, SynthesisProfile
-from local_tts_reader.storage.artifacts import audio_path, validate_narration_wav
+from local_tts_reader.storage.artifacts import (
+    NarrationSilenceError,
+    audio_path,
+    validate_narration_wav,
+)
 from local_tts_reader.storage.repositories import Repository
 from local_tts_reader.tts.base import TtsEngine
+
+_MAX_NARRATION_ATTEMPTS = 3
 
 
 class SynthesisService:
@@ -47,10 +54,23 @@ class SynthesisService:
                 f"{self.min_free_bytes} required"
             )
         destination = audio_path(self.audio_root, key)
-        artifact = engine.synthesize(chunk, profile, destination)
-        if artifact.cache_key != key:
-            artifact = artifact.model_copy(update={"cache_key": key})
-        validate_narration_wav(artifact.path)
-        self.repository.save_audio(artifact)
-        self.repository.mark_chunk_ready(chunk.chunk_id)
-        return artifact, False
+        candidate = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+        for attempt in range(1, _MAX_NARRATION_ATTEMPTS + 1):
+            try:
+                artifact = engine.synthesize(chunk, profile, candidate)
+                validate_narration_wav(artifact.path)
+                artifact.path.replace(destination)
+            except NarrationSilenceError as error:
+                if attempt == _MAX_NARRATION_ATTEMPTS:
+                    raise NarrationSilenceError(
+                        f"chunk {chunk.ordinal + 1} (ordinal {chunk.ordinal}) failed "
+                        f"after {attempt} attempts: {error}"
+                    ) from error
+            else:
+                artifact = artifact.model_copy(update={"cache_key": key, "path": destination})
+                self.repository.save_audio(artifact)
+                self.repository.mark_chunk_ready(chunk.chunk_id)
+                return artifact, False
+            finally:
+                candidate.unlink(missing_ok=True)
+        raise AssertionError("at least one narration attempt is required")

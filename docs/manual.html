@@ -1180,9 +1180,9 @@ min_free_bytes = 268435456</code></pre>
 
         <div class="callout">
           <div class="callout-mark" aria-hidden="true">!</div>
-          <p><strong>Use one configuration consistently</strong>Models, document IDs, cache records,
-            and resume positions live in its configured <code>data_dir</code>. Commands that use
-            a different configuration file appear to have a different library.</p>
+          <p><strong>Use one configuration consistently</strong>The configured <code>data_dir</code>
+            determines which library, audio cache, and resume positions the reader uses.
+            Two configuration files with the same <code>data_dir</code> share one workspace.</p>
         </div>
 
         <p>The former default pair of <code>1200</code> and <code>1800</code> is automatically
@@ -1197,14 +1197,44 @@ min_free_bytes = 268435456</code></pre>
           Sentence endings retain closing quotation marks, and the fallback never asks Qwen to
           pronounce an isolated letter or broken word.</p>
 
-        <h3>Alternate profiles and environment reference</h3>
-        <p>For a separate profile or an isolated test workspace, put <code>--config</code> before
-          the reader subcommand. A missing config is created and initially uses its parent directory
-          as the workspace:</p>
+        <h3 id="separate-workspace">Regenerate in a separate workspace</h3>
+        <p>Use a new workspace to regenerate every chunk while keeping the original library
+          and export available for comparison. If you also want a backup copy, copy the old WAV
+          from its workspace's <code>exports/</code> directory to a separate backup location.</p>
+        <p>Start from the repository directory. Pass a missing config path to create a config
+          with default settings and set <code>data_dir</code> to the config's parent directory.
+          Check the <code>data_dir</code> reported by <code>doctor</code> before importing.</p>
         <div class="command">
-          <div class="command-bar"><span>Alternate profile</span><button class="copy-button" type="button" data-copy-target="cmd-alternate-config">Copy</button></div>
-          <pre><code id="cmd-alternate-config">uv run --no-sync reader --config "$PWD/reader.toml" doctor</code></pre>
+          <div class="command-bar"><span>Create and inspect a fresh workspace</span><button class="copy-button" type="button" data-copy-target="cmd-alternate-config">Copy</button></div>
+          <pre><code id="cmd-alternate-config">rerun_dir="$(mktemp -d "$HOME/Downloads/reader-rerun.XXXXXX")" &amp;&amp;
+uv run --no-sync reader --config "$rerun_dir/config.toml" doctor</code></pre>
         </div>
+        <p>If you copy an existing config to keep custom voice or chunking settings, set
+          <code>data_dir</code> in the copy to the new directory before using it. Otherwise,
+          a copied <code>data_dir</code> still selects the original workspace.</p>
+        <p>In the same terminal, import the source. Replace the example path with your file.
+          The same source bytes produce the same document ID, and the new library keeps its own
+          document files, SQLite state, audio cache, and exports.</p>
+        <div class="command">
+          <div class="command-bar"><span>Import into the fresh workspace</span><button class="copy-button" type="button" data-copy-target="cmd-rerun-ingest">Copy</button></div>
+          <pre><code id="cmd-rerun-ingest">uv run --no-sync reader --config "$rerun_dir/config.toml" \
+  ingest "/absolute/path/to/document.pdf"</code></pre>
+        </div>
+        <p>Replace <code>DOCUMENT_ID</code> with the ID returned by import. Use the absolute
+          path reported by <code>reader models verify</code> in your original workspace as
+          <code>--model</code> to reuse the installed weights. Keep <code>--config</code> before
+          every subcommand for this rerun.</p>
+        <div class="command">
+          <div class="command-bar"><span>Synthesize and export</span><button class="copy-button" type="button" data-copy-target="cmd-rerun-export">Copy</button></div>
+          <pre><code id="cmd-rerun-export">uv run --no-sync reader --config "$rerun_dir/config.toml" \
+  speak DOCUMENT_ID --no-play --model "/absolute/path/to/installed/model" &amp;&amp;
+uv run --no-sync reader --config "$rerun_dir/config.toml" \
+  export wav DOCUMENT_ID</code></pre>
+        </div>
+        <p>Find the new WAV under <code>$rerun_dir/exports/</code>. Listen to the passages
+          that prompted the rerun. Fresh synthesis can still repeat or omit words.</p>
+
+        <h3>Environment reference</h3>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Purpose</th><th>Normal value</th></tr></thead>
@@ -1592,7 +1622,22 @@ UV_CACHE_DIR=.cache/uv uv sync --group dev --extra mlx</code></pre>
         <details>
           <summary>Generation appears slow</summary>
           <div class="details-body">
-            <p>The first chunk includes lazy model loading. Later matching runs use complete cached WAV files. Confirm Apple silicon, close memory-heavy applications, and avoid changing voice or instruction settings when you want cache reuse.</p>
+            <p>The first chunk includes lazy model loading. Both <code>speak</code> and
+              <code>resume</code> show completed chunks, the total, and percentage on stderr,
+              including with <code>--no-play</code>. The final JSON summary goes to stdout.
+              To check a running job from another terminal, use <code>reader status DOCUMENT_ID</code>
+              with the same configuration. Later matching runs use complete cached WAV files.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>A chunk contains excessive silence</summary>
+          <div class="details-body">
+            <p>If a new WAV has no audible speech or ends with more than three seconds of
+              silence, the reader discards it and retries that chunk up to twice. If all
+              three attempts fail, the error reports the chunk number. Run
+              <code>reader resume</code> with the same configuration to continue from that
+              chunk.</p>
           </div>
         </details>
 

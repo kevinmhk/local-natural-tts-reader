@@ -54,6 +54,10 @@ def _echo_model(value: object) -> None:
     typer.echo(json.dumps(value, indent=2, sort_keys=True, default=str))
 
 
+def _echo_progress(completed: int, total: int) -> None:
+    typer.echo(f"Progress: {completed}/{total} chunks complete ({completed / total:.1%})", err=True)
+
+
 def _interactive_stdin() -> bool:
     """Return whether destructive confirmation can safely prompt the user."""
     return sys.stdin.isatty()
@@ -300,7 +304,7 @@ def speak(
             )
         )
         playback = FakePlaybackBackend() if no_play else AfplayBackend()
-        result = application.speak(document_id, profile, tts, playback)
+        result = application.speak(document_id, profile, tts, playback, on_progress=_echo_progress)
     except (KeyError, ModelUnavailableError, OSError, RuntimeError, ValueError) as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(2) from error
@@ -328,7 +332,7 @@ def resume(
             else MlxQwenTtsEngine(application.settings.data_dir / "models")
         )
         playback = FakePlaybackBackend() if no_play else AfplayBackend()
-        result = application.resume(document_id, tts, playback)
+        result = application.resume(document_id, tts, playback, on_progress=_echo_progress)
     except (KeyError, ModelUnavailableError, OSError, RuntimeError, ValueError) as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(2) from error

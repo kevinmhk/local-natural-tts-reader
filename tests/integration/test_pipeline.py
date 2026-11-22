@@ -6,11 +6,12 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from local_tts_reader.application.pipeline import ReaderApplication
 from local_tts_reader.config import Settings
-from local_tts_reader.domain.models import AudioArtifact, SpeakResult, SynthesisProfile
+from local_tts_reader.domain.models import AudioArtifact, Chunk, SpeakResult, SynthesisProfile
 from local_tts_reader.playback.base import PlaybackResult, StopToken
 from local_tts_reader.playback.fake import FakePlaybackBackend
 from local_tts_reader.tts.fake import FakeTtsEngine
@@ -196,6 +197,52 @@ def test_cached_audio_with_a_long_silent_tail_is_regenerated(
 
     assert replay.generated_count == 1
     assert replay.cache_hit_count == len(app.get_chunks(document.document_id)) - 1
+
+
+@pytest.mark.parametrize("bad_attempts", [1, 3])
+def test_new_audio_with_a_long_silent_tail_is_retried(tmp_path: Path, bad_attempts: int) -> None:
+    class SilentTailEngine(FakeTtsEngine):
+        attempts = 0
+
+        def synthesize(
+            self, chunk: Chunk, profile: SynthesisProfile, destination: Path
+        ) -> AudioArtifact:
+            artifact = super().synthesize(chunk, profile, destination)
+            if chunk.ordinal == 1:
+                self.attempts += 1
+                if self.attempts <= bad_attempts:
+                    samples, rate = sf.read(destination)
+                    sf.write(
+                        destination,
+                        np.concatenate((samples, np.zeros(5 * rate))),
+                        rate,
+                        format="WAV",
+                    )
+            return artifact
+
+    source = tmp_path / "long.txt"
+    source.write_text("First paragraph.\n\nSecond paragraph.\n")
+    app = ReaderApplication(
+        Settings(data_dir=tmp_path / "data", chunk_target_chars=20, chunk_hard_limit_chars=40)
+    )
+    document = app.ingest(source)
+    profile = SynthesisProfile(engine="fake", model="fake-tone")
+    engine = SilentTailEngine()
+    playback = FakePlaybackBackend()
+    if bad_attempts == 1:
+        result = app.speak(document.document_id, profile, engine, playback)
+        assert result.state == "complete"
+        assert engine.attempts == 2
+    else:
+        with pytest.raises(ValueError, match=r"chunk 2 .*3 attempts.*silent tail"):
+            app.speak(document.document_id, profile, engine, playback)
+        assert engine.attempts == 3
+        assert len(app.repository.referenced_audio_paths()) == 1
+        assert len(list((app.settings.data_dir / "audio").rglob("*.wav"))) == 1
+
+        result = app.resume(document.document_id, FakeTtsEngine(), FakePlaybackBackend())
+        assert result.state == "complete"
+        assert result.generated_count == 1
 
 
 class _BlockingPlayback:

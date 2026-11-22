@@ -114,6 +114,11 @@ uv run --no-sync reader pause DOCUMENT_ID
 uv run --no-sync reader resume DOCUMENT_ID
 ```
 
+`speak` and `resume` report completed chunks, the document total, and percentage on
+stderr, including with `--no-play`. The final JSON summary goes to stdout.
+For a run already in progress, use `reader status DOCUMENT_ID` in another terminal
+with the same configuration.
+
 Use the fake engine for a fast non-audible end-to-end check:
 
 ```sh
@@ -149,18 +154,31 @@ The default chunk limits are deliberately short (`280` target characters and `36
 characters) for reliable Qwen3-TTS completion. If an individual request still reaches Qwen's
 generation limit, the MLX adapter retries it as smaller complete sentences or packed natural
 phrases and joins valid results with brief pauses. It never splits a word, acronym, or partially
-quoted token for synthesis. WAVs that end in more than three seconds of silence are rejected rather
-than cached. On the next reader command, the former default pair of `1200` and `1800` is migrated
-once to these safer values.
+quoted token for synthesis. If a newly generated WAV contains no audible speech or ends with
+more than three seconds of silence, the reader discards it and retries the chunk up to twice.
+If all three attempts fail, use the reported chunk number to locate the issue. A subsequent
+`reader resume` starts at that chunk. The former default pair of `1200` and `1800` migrates
+once to the shorter limits when the reader loads the configuration.
 
-Use a separate config and workspace for a different profile or test run:
+### Run in a separate workspace
+
+Use a fresh directory to regenerate a document while preserving its existing audio and exports.
+Pass `--config` before the subcommand on every command for the rerun:
 
 ```sh
-uv run --no-sync reader --config /path/to/reader.toml doctor
+rerun_dir="$(mktemp -d "$HOME/Downloads/reader-rerun.XXXXXX")" &&
+uv run --no-sync reader --config "$rerun_dir/config.toml" doctor
 ```
 
-If it does not exist, the reader creates the file and uses its parent directory as that profile's
-initial workspace. No `LOCAL_TTS_READER_DATA_DIR` environment variable is read by the reader.
+The reader creates the missing config with default settings and sets its `data_dir` to the
+config's parent directory. Check the reported `data_dir` in `doctor`. Each workspace has its own
+document library, SQLite database, audio cache, resume positions, and exports. An unchanged
+source can have the same document ID in both workspaces.
+
+If you copy an existing config to retain custom settings, update its `data_dir` to the new
+directory before running any reader commands with that copy. Two configs with the same
+`data_dir` share the same workspace. See the [regeneration walkthrough](docs/manual.html#separate-workspace)
+for how to reuse installed model weights and produce a separate WAV export.
 
 ## Offline verification
 

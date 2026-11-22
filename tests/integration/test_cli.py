@@ -62,7 +62,16 @@ def test_cli_fake_reader_workflow(tmp_path: Path, fixture_root: Path) -> None:
         ],
     )
     assert spoken.exit_code == 0, spoken.output
-    assert json.loads(spoken.output)["state"] == "complete"
+    assert json.loads(spoken.stdout)["state"] == "complete"
+    assert spoken.stderr.splitlines() == [
+        "Progress: 0/1 chunks complete (0.0%)",
+        "Progress: 1/1 chunks complete (100.0%)",
+    ]
+
+    resumed = runner.invoke(app, ["--config", str(config_path), "resume", document_id, "--no-play"])
+    assert resumed.exit_code == 0, resumed.output
+    assert json.loads(resumed.stdout)["state"] == "complete"
+    assert resumed.stderr.splitlines() == ["Progress: 1/1 chunks complete (100.0%)"]
 
     exported = runner.invoke(
         app,

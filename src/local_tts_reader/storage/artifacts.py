@@ -14,6 +14,10 @@ _AUDIBLE_SAMPLE_THRESHOLD = 0.005
 _MAX_TRAILING_SILENCE_SECONDS = 3.0
 
 
+class NarrationSilenceError(ValueError):
+    """Raised when a WAV is silent or ends with excessive silence."""
+
+
 @dataclass(frozen=True, slots=True)
 class WavInfo:
     """Validated WAV metadata."""
@@ -69,12 +73,12 @@ def validate_narration_wav(path: Path) -> WavInfo:
                 last_audible_frame = offset + int(indices[-1])
             offset += len(block)
     if last_audible_frame < 0:
-        raise ValueError(f"audio artifact contains no audible speech: {path}")
+        raise NarrationSilenceError(f"audio artifact contains no audible speech: {path}")
     trailing_silence_seconds = (
         info.duration_seconds * info.sample_rate - last_audible_frame - 1
     ) / info.sample_rate
     if trailing_silence_seconds > _MAX_TRAILING_SILENCE_SECONDS:
-        raise ValueError(
+        raise NarrationSilenceError(
             "audio artifact has an implausibly long silent tail "
             f"({trailing_silence_seconds:.1f} seconds): {path}"
         )
